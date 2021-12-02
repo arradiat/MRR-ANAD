@@ -1,0 +1,63 @@
+---
+title: "TP IMF "
+author: "Mame Diarra Toure- Imane ALLA"
+date: "12/24/2019"
+header-includes:
+   - \usepackage{algorithm}
+   - \usepackage{algorithmic}
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+\color{magenta }\section{Quelques indices boursiers }
+\color{black}
+\subsection{Indice CAC 40}
+ Un indice boursier constitue un indicateur clé pour déterminer la performance d'un marché. Les indices boursiers permettent aux investisseurs de gérer leur portefeuille d'actions. Ils sont représentatifs soit d'un marché  soit d'un secteur d'activité particullier.
+ Le CAC 40 est le  principale indice boursier de la bourse de paris. Il a été créé en 1987.Le  CAC  40  mesure l'évolution des 40 plus grandes capitalisations françaises. C’est un panier composé de 40 valeurs de sociétés françaises. Ces sociétés sont choisies parmi les 100 sociétés françaises dont les volumes d’échanges de titres sont les plus importants. Chaque société a un poids déterminé par rapport à sa capitalisation sur NYSE Euronext. 
+CAC signifie Cotation Assistée en Continu, cela veut dire que sa valeur varie en permanence tous les jours ouvrés de 9h00 à 17h30. Il est mis à jour toutes les 15 secondes.
+40 parce qu’il se compose de 40 valeurs parmi les 100 premières capitalisations françaises.
+Habituellement, le CAC 40 est calculé en dividendes non réinvestis. Cela signifie que la valeur des actions qui composent cet indice ne prend pas en compte les dividendes générés par ces actions.
+L’évolution du CAC 40 est le reflet de la tendance générale des performances des grandes entreprises françaises sur les marchés financiers. C’est l’indice boursier le plus suivi de la place de Paris. Une baisse de CAC 40 est interprétée par les intervenants comme une diminution de la santé de l’économie française (mais comme les entreprises sont de plus en plus internationalisées, l’évolution du CAC 40 reflète aussi les variations de l’économie mondiale).
+Le cours de l'indice boursier reconnait une chute de 0.27% le 7 févr. à 14:41.
+
+\subsection{Indice Eurostoxx 50 }
+L’Eurostoxx 50 est un indice boursier européen regroupant 50 sociétés de la Zone euro. Un classement des 600 plus importantes entreprises est effectué chaque année au mois d'aout pour séléctionner les 50 capitalisations boursières de l’Eurozone. Par son système de calcul complexe basé sur les places des sociétés dans ce classement, il est plus difficile pour une entreprise d’entrer que d’être exclue de l’Eurostoxx 50.
+L'indice boursier a été coté pour la première fois en 1998 et a réalisé ses meilleurs records en 2009 avec une valeur d'indice de 5464,64.Il est constistué dde 8 pays dont France avec un total en pourcentage de 36,80 et Allemagne avec 28,41%. Il est à noter qu'il englobe la majorité des grandes sociétés du CAC40 et DAX30.Le cours de l'indice boursier reconnait une chute de 0,37% le 7 févr. à 14:22.
+\subsection{Indice S&P 500 }
+Le S&P 500 est un indice américain majeur qui regroupe 500 titres sélectionnés par un comité parmi ceux cotés sur le New-York Stock Exchange et le Nasdaq. Il couvre environ 80 % du marché boursier américain par sa capitalisation.
+Il s’agit généralement d’entreprises ayant les plus grosses capitalisations boursières et qui sont négociées activement sur ces marchés, on peut y retrouver des sociétés non-américaines. L’indice est détenu et géré par Standard & Poors, une division de la société The Mc Graw-Hill.Il comprend notamment Cisco Systems, Ford, Kimberly-Clark, Kraft Foods, Macy’s, Lookheed Martin, ou encore Polo Ralph Lauren.Après avoir terminé en hausse de 0.33% à 3345 points, un nouveau record en clôture, l'indice S&P500 est attendu en baisse de 0.25% aujourd'hui.
+\color{magenta }\section{Orange SA}
+\color{black}
+Orange est une société française de télécommunications. Elle comptait à la fin de 2019 près de 266 millions6 de clients dans le monde1, des chiffres en hausse par rapport à ceux affichés en 20187. En 2019, l'entreprise est leader ou second opérateur dans 75 % des pays européens où elle est implantée et dans 83 % des pays en Afrique et au Moyen-Orient8.
+
+Orange était à l'origine une entreprise de télécommunications britannique devenue, en 1999, la filiale de Mannesmann puis, en 2000, celle du groupe France Télécom, entreprise publique. France Télécom9 employait en 2019 près de 148 000 personnes10, dont 88 000 en France. L'ancien monopole public français s'est donc internationalisé à la suite du rachat d'Orange. Le nouveau groupe ainsi créé est présent notamment en Europe, en Afrique et dans les Antilles. À partir du rachat d'Orange, la plupart des marques du groupe France Télécom sont passées sous la marque Orange. Depuis février 2012 et le passage sous la marque Orange des activités de téléphonie fixe, la totalité des offres commercialisées par France Télécom utilise cette marque, qui, le 1er juillet 2013, est devenue la nouvelle appellation du groupe.
+
+En 2018, Orange a réalisé un chiffre d'affaires de 41,391 milliards d'euros pour l'ensemble de ses activités et comptait 266 millions de clients dans le monde dont 201 millions de clients en téléphonie mobile et 18,2 millions de clients haut débit fixe6.
+
+Orange élargit ses activités à la vente de contenu (musique, cinéma, téléchargement…), au commerce électronique, à la publicité en ligne, aux solutions M2M, domotique et de téléassistance.
+Au 7 février 2020 a 14H 51 le prix d'une action du groupe  est de 12.77€.
+\subsection{ «Open», «High», «Low» and «Close» values of a stock}
+Open: Prix de  l'action à l'ouverture du marché.
+ 
+Low:Limite de la fourchette de prix à l'intérieur de laquelle le titre s'est négocié pendant la journée.Le prix minimum  que les gens ont payés pour l'action.
+ 
+High:Limite de la fourchette de prix à l'intérieur de laquelle le titre s'est négocié pendant la journée.Le prix maximum  que les gens ont payés pour l'action.
+ 
+ 
+Close: Le cours de clôture est le dernier prix enregistré à la fermeture du marché pour la journée.Le cours de clôture est seulement un indicateur du rendement antérieur et, sauf en des circonstances extrêmes, il constitue une approximation de ce que vous devriez payer.
+ 
+\subsection{«Volume»}
+ 
+Le Volume des opérations est le nombre total d'actions échangées pendant la journée et est indiqué en centaines. Pour obtenir la quantité réelle, ajoutez deux zéros (00) à la fin du chiffre indiqué.
+ 
+\subsection{«Adjusted close»}
+ 
+Le cours de clôture ajusté est le cours de clôture après ajustement de tous les fractionnements et distributions de dividendes applicables.
+```{r}
+data <- read.table
+```
+

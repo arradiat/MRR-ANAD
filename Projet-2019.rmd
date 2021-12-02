@@ -1,0 +1,12 @@
+---
+title: "Mélange de Bernoulli"
+author: ""
+date: "24/10/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+s

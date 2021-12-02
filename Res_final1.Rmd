@@ -1,0 +1,624 @@
+---
+title: "Projet Analyse de données"
+author: "Mame Diarra Toure- Imane ALLA"
+date: "12/24/2019"
+header-includes:
+   - \usepackage{algorithm}
+   - \usepackage{algorithmic}
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r , echo=FALSE,  warning=FALSE, error=FALSE, include=FALSE}
+library(tidyverse)
+library(reshape2)
+```
+  
+# Exercice 1: Simulation d'un mélange à trois composantes.
+
+On considère un mélange à 3 composantes de Bernoulli.
+\newline
+Dans cet exercice, nous avons décidé de reprogrammer notre propre simulation afin de mieux comprendre le processus, nous avons par la suite comparé notre simulation avec la simulation donnée.
+```{r}
+set.seed(3)
+K<-3
+p<-50
+n<-200
+pi<-c(1/3,1/3,1/3)
+M<-matrix(runif(K*p),K,p)
+M[K,]<-1-M[1,]
+nks<-rmultinom(1,200,prob = pi)
+Z<-rep(1:length(nks),nks)
+X <-do.call(rbind, 
+                  mapply(function(nk,k){
+                    matrix(rbernoulli(nk*p,p=M[k,]),
+                           nrow = nk,
+                           ncol=p,
+                           byrow = TRUE)}, nks,1:K))
+
+kmeans(X,3,nstart = 10)->res.kmeans
+tidyData<-melt(X[order(res.kmeans$cluster),order(M[1,])])
+```
+```{r}
+set.seed(3)
+K<-3
+p<-50
+n<-200
+pi<-c(1/3,1/3,1/3)
+#chaque ligne correspond a une composante de la mixture 
+M<-matrix(runif(K*p),K,p)
+#Pour éviter d'avoir des valeurs similaires
+M[K,]<-1-M[1,] 
+#Subdivision de l'échantillon: Combien appartiennent à chacune des lois(1 ère,2ème...)
+nks<-rmultinom(1,200,prob = pi) 
+Z<-rep(1:length(nks),nks)
+#la loi de X sachant Z chaque ligne correspond a un vecteur Xi 
+XsZ <- matrix(345,50,200-nks[3])
+for (i in 1:nks[1]){
+  XsZ[,i] <- rbernoulli(50,M[1,])
+}
+for(i in 1:(nks[2])){
+  XsZ[,nks[1]+i] <- rbernoulli(50,M[2,])
+}
+
+XsZ3 <- matrix(345,50,nks[3])
+for(i in 1:(nks[3])){
+  XsZ3[,i] <- rbernoulli(50,M[3,])
+}
+XsZ <- t(cbind(XsZ,XsZ3))
+#Permutation des lignes
+XsZ1 <- XsZ[sample(nrow(XsZ)),]
+#On applique kmeans sur notre matrice XsZ1
+kmeans(XsZ1,3,nstart = 10)->res.kmeans1
+tidyData1 <- melt(XsZ1[order(res.kmeans1$cluster),order(M[1,])])
+```
+##comparaison des deux simulations 
+
+```{r}
+#simulation donnée
+par(mfrow=c(1,2))
+ggplot(tidyData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) +
+  scale_fill_brewer(aesthetics = "fill") + 
+labs(x="Variables", y="Individus", title="Matrix")
+#notre simulation
+ggplot(tidyData1, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) +
+  labs(x="Variables", y="Individus", title="Matrix")
+
+```
+
+Remarques : 
+
+1. Il y'a bien 3 classes (dans le cas de notre simulation ) ce qui est en accord avec le fait qu'on ait 3 composantes dans le mélange. 
+2. Les objets similaires sont proches les uns des autres. La couleur bleue foncée correspond à une petite distance et la couleur bleue claire indique une grande distance entre les observations.
+3- La correspondance des deux tracés précedent nous conforte dans l'idée que nous avons bien simulé nos données
+# Exercise 2 : Equations de l'algorithme EM
+
+## Question 1:
+
+On note: $\theta=\{\pi,M\}$
+
+$$P(X,Z|\theta)=\prod_{i=1}^nP(x_i,z_i|\theta)=\prod_{i=1}^n P_\theta(x_i|z_i)\times P_\theta(z_i) $$
+$$P(X,Z|\theta)=\prod_{i=1}^n\prod_{k=1}^K P(x_i|\mu_k)^{z_{ik}}\times \pi_k^{z_{ik}}$$
+$$P(X,Z|\theta)=\prod_{i=1}^n\prod_{k=1}^K\pi_k^{z_{ik}}(\prod_{j=1}^p\mu_{kj}^{x_{ij}}(1-\mu_{kj})^{1-x_{ij}})^{z_{ik}} $$
+$$\ln(P(X,Z|\theta))=\ln(\prod_{i=1}^n\prod_{k=1}^K\pi_k^{z_{ik}}(\prod_{j=1}^p\mu_{kj}^{x_{ij}}(1-\mu_{kj})^{1-x_{ij}})^{z_{ik}}) $$
+$$\ln(P(X,Z|\theta))=\ln(\prod_{i=1}^n\prod_{k=1}^K\pi_k^{z_{ik}}(\prod_{j=1}^p\mu_{kj}^{x_{ij}}(1-\mu_{kj})^{1-x_{ij}})^{z_{ik}}) $$
+$$\ln(P(X,Z|\theta))=\ln(\prod_{i=1}^n\prod_{k=1}^K\pi_k^{z_{ik}}(\prod_{j=1}^p\mu_{kj}^{x_{ij}}(1-\mu_{kj})^{1-x_{ij}})^{z_{ik}}) $$
+\boxed{$$\ln(P(X,Z|\theta))=\sum_{i=1}^n\sum_{k=1}^K({z_{ik}})(\ln(\pi_k)+\sum_{j=1}^p{x_{ij}}\ln(\mu_{kj})+({1-x_{ij}})\ln(1-\mu_{kj})))$$}
+
+
+## Question 2:
+
+\begin{align*}
+t_{ik}^{q}&=\mathbb{E}(Z_{ik}/x_{i},\theta^{q})\\
+&=1\times\mathbb{P}(z_{ik}=1/x_{i},\theta^{q})+0\times\mathbb{P}(z_{ik}=0/x_{i},\theta^{q})\\
+&=\frac{\mathbb{P}(z_{ik}=1,x_{i}/\theta^{q})}{\mathbb{P}(x_{i}/\theta^{q})}\\
+&=\frac{\mathbb{P}(z_{ik}=1,/\theta^{q})\times\mathbb{P}(x_{i}/z_{ik}=1,/\theta^{q})}{\mathbb{P}(x_{i}/\theta^{q})}\\
+&=\frac{\pi_k\times\mathbb{P}(x_{i}/z_{ik}=1,/\theta^{q})}{\mathbb{P}(x_{i}/\theta^{q})}\\
+&=\frac{\mathbb{P}(z_{ik}=1,x_{i}/\theta^{q})}{\mathbb{P}(x_{i}/\theta^{q})}\\
+&=\frac{\pi_k \prod\limits_{j=1}^p \mu_{kj}^{x_{ij}}(1-\mu_{kj})^({1-x_{ij})}}{\sum\limits_{k=1}^n\pi_k \prod\limits_{j=1}^p \mu_{kj}^{x_{ij}}(1-\mu_{kj})^({1-x_{ij}})}\\
+\end{align*}
+
+## Question 3:
+
+\begin{align*}
+\mathbb{Q}(\theta^{q}/\theta)&=\mathbb{E}_{/X,\theta^{q}}(ln(p_{n}(X,Z/\theta)))\\
+&=\sum\limits_{i=1}^n \sum\limits_{k=1}^K \mathbb{E}_{/X,\theta^{q}}[Z_{ik}(\ln( P_{\theta}(X_i/Z_i=k))+\ln(\pi_k))]\\
+&=\sum\limits_{i=1}^n \sum\limits_{k=1}^K \mathbb{E}_{/X,\theta^{q}}(Z_{ik})(\ln( P_{\theta}(X_i/Z_i=k))+\ln(\pi_k))\\
+&=\sum\limits_{i=1}^n \sum\limits_{k=1}^K t_{ik}^q[\ln( P_{\theta}(X_i/Z_i=k))+\ln(\pi_k)]\\
+&=\sum\limits_{i=1}^n \sum\limits_{k=1}^K t_{ik}^q[\ln(\pi_k)+\sum \limits_{j=1}^p\ln( \mu_{kj}^{x_{ij}}(1-\mu_{kj}^{1-x_{ij}}))]\\
+&=\sum\limits_{i=1}^n \sum\limits_{k=1}^K t_{ik}^q[\ln(\pi_k)+\sum \limits_{j=1}^p x_{ij}\ln( \mu_{kj})+(1-x_{ij})\ln(1-\mu_{kj})]\\
+\end{align*}
+
+## Question 4:
+
+Soit k,
+$$\theta^{q+1}=\smash{\mathop{{\rm argmax}}\limits_{\theta}}\,(\mathbb{Q}(\theta^{q}/\theta))$$
+$$\frac{\partial\mathbb{Q}(\theta^{q}/\theta)}{\partial\mu_{k}}=0\qquad ====>\mu_{k}^{q+1}=\frac{\sum_{i=1}^{n}t_{ik}^{q}x_{i}}{\sum_{i=1}^{n}t_{ik}^{q}}$$
+$$\frac{\partial\mathbb{Q}(\theta^{q}/\theta)}{\partial\pi_{k}}=0\qquad ====> \pi_{k}^{q+1}=\frac{1}{n}\sum_{i=1}^{n}t_{ik}^{q}$$
+
+## Question 5:
+
+1. Etape E:
+    + A cette étape, $\theta^q$ est l'estimation de $\theta$
+
+    + On calcule $\mathbb{Q}(\theta^{q}/\theta)=\mathbb{E}_{/X,\theta^{q}}(ln(p_{n}(X,Z/\theta)))$ (complete log-likelihood)
+  
+2. Etape M:
+    + A cette étape, on retourne $\log(P_{\theta^{q+1}}(X))$(incomplete log-likelihood)
+    + $\theta^{q+1}=\smash{\mathop{{\rm argmax}}\limits_{\theta}}\,(\mathbb{Q}(\theta^{q}/\theta))$
+    
+Remarque:
+
+1.$\mathbb{E}_{/X,\theta^{q}}(ln(P(X/\theta)))=\mathbb{E}_{/X,\theta^{q}}(ln(P(X,Z/\theta)))-\mathbb{E}_{/X,\theta^{q}}(ln(P(Z/X,\theta)))$
+Le terme $-\mathbb{E}_{/X,\theta^{q}}(ln(P(Z/X,\theta)))$ correspond à l'entropie de la variable latente.En maximisant la "complete log(likelihood)",on minimise l'entropie.
+
+## Question 6:
+$$P_{\theta^{q+1}}(Z|X)=\frac{P_{\theta^{q+1}}(X,Z)}{P_{\theta^{q+1}}(X)}$$
+$$\ln(P_{\theta^{q+1}}(Z|X))=\ln({P_{\theta^{q+1}}(X,Z)})-\ln({P_{\theta^{q+1}}(X)})$$
+$${E}[\ln(P_{\theta^{q+1}}(Z|X))]={E}[\ln({P_{\theta^{q+1}}(X,Z)})-\ln({P_{\theta^{q+1}}(X)})]$$
+$${E}[\ln(P_{\theta^{q+1}}(Z|X))]={E}[\ln({P_{\theta^{q+1}}(X,Z)})-\ln({P_{\theta^{q+1}}(X)})]$$
+$$-{E}[\ln(P_{\theta^{q+1}}(Z|X))]=-{E}[\ln({P_{\theta^{q+1}}(X,Z)})]+\ln({P_{\theta^{q+1}}(X)})$$
+$$-{E}[\ln(P_{\theta^{q+1}}(Z|X))]=-{Q}(\theta^{q+1}|\theta)+\ln({P_{\theta^{q+1}}(X)})$$
+
+
+
+## Question 7:
+
+On note: 
+$$\hat{\theta}=\smash{\mathop{{\rm argmax}}\limits_{\theta \in \Theta_k}}\,(\ln(P_{\theta}(X)))$$
+$\hat{\theta}=$la valeur maximale estimée de $\theta$ pour un model à K composantes.(Sortie de l'algorithme EM)
+\newline
+\newline
+ $\Theta_k$=Espace de paramétres pour un melange de modéles  à K composantes
+\begin{align*}
+\ln(P_{\hat{\theta}}(X))&=\sum\limits_{i=1}^n\ln(\sum\limits_{k=1}^K \pi_k P_{\hat{\theta}}(X_{i}))\\
+&=\sum\limits_{i=1}^n\ln(\sum\limits_{k=1}^K\pi_k\prod\limits_{j=1}^p \mu_{kj}^{x_{ij}}(1-\mu_{kj})^{1-x_{ij}})\\
+\end{align*}
+
+## Question 8:
+
+$$\hat{K}_{BIC}=\smash{\mathop{{\rm argmax}}\limits_{k}}\,(\ln(P_{\hat{\theta}}(X))-\frac{d_k}{2}\log(n))$$
+$d_k=(k-1)+kp =k(p+1)-1$ 
+p est la dimension des vecteurs de l'echantillon 
+$d_k$ représente le nombre de paramétres à estimer  et n la taille de l'echantillon (ici 200). 
+donc: 
+\begin{align*}
+\hat{K}_{BIC}&=\smash{\mathop{{\rm argmax}}\limits_{k}}\,(\ln(P_{\hat{\theta}}(X))-\frac{k(p+1)-1}{2}\log(n))\\
+&=\smash{\mathop{{\rm argmax}}\limits_{k}}\,(\sum\limits_{i=1}^n\ln(\sum\limits_{k=1}^K\prod\limits_{j=1}^p \pi_k\mu_{kj}^{x_{ij}}(1-\mu_{kj}^{1-x_{ij}}))-\frac{k(p+1)-1}{2}\log(n))\\
+\end{align*}
+
+## Question 9:
+$$\hat k_{ICL}=\smash{\mathop{{\rm argmax}}\limits_{k}}\,(\ln(P_{\hat{\theta}}(X))-d_k\ln (n)+{E}_{Z|X,\theta}[\ln(P_{\hat {\theta}}(Z|X) )])$$
+le terme${E}_{Z|X,\theta}[\ln(P_{\hat {\theta}} )]$ représente l'entropie de la partition 
+$$\hat k_{ICL}=\smash{\mathop{{\rm argmax}}\limits_{k}}\,({E}_{Z|X,\theta}[\ln(P_{\hat {\theta}}(X,Z) )]-\frac{d_k\ln (n)}{2})$$
+
+
+
+##Question 10:
+
+\begin{algorithm*}
+\caption{EM Algorithm }
+\begin{algorithmic}
+\STATE \textbf{Initialize\,:\:}the parameter $\theta^0:\{\mu,\pi\}$ randomly
+\STATE q<-0
+\WHILE{$||\theta^{q}-\theta^{q+1}||>\epsilon$} 
+\STATE $\textbf{E-Step}$
+\STATE $\mathbb{Q}(\theta^{q}/\theta)$
+\STATE $\textbf{M-Step}$
+\STATE $\theta^{q+1}=\smash{\mathop{{\rm argmax}}\limits_{\theta}}\,(\mathbb{Q}(\theta^{q}/\theta))$
+\STATE $q\leftarrow q+1$
+\ENDWHILE
+\end{algorithmic}
+\end{algorithm*}
+
+
+# Exercice 3: Programmation de l’algorithme EM
+
+## Definition du vecteur Zik:
+
+```{r}
+Zik <- matrix(0,nrow=200,ncol=K)
+for( i in 1:200){
+  for(k in 1:K){
+    if(Z[i]==k)
+    Zik[i,k]=1
+  }
+} 
+```
+
+## Question 1:
+
+### Initialisation des paramètres:
+```{r}
+init.EM <- function (x,r){
+  proportions <- rep(1/r,r)#initialisation des proportions
+  eps <- 0.1
+  n <- nrow(x)
+  p <- ncol(x)
+  #initilisation des vecteurs moyennes avec des valeurs random entre 0 et 1 
+  mu1<-matrix(runif(r*p),r,p)
+  parameters=list(proportions=proportions,mu=mu1)
+  return(parameters)
+}
+```
+### Etape E de l'algorithme EM : Calcul de $t_{ik}$
+```{r}
+E.EM <- function(x,param){
+  set.seed(3)
+  K1<-nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  n <- nrow(x)
+  p <- ncol(x)
+  t <- matrix(0,nrow=nrow(x),ncol=K1)
+      for( i in 1:n){
+        for(k1 in 1:K1){
+          a=1
+            for (j in 1:p){
+              a =a*((mu[k1,j]**x[i,j])*(1-mu[k1,j])**(1-x[i,j]))
+              
+            }
+            t[i,k1] <- pi[k1]*a     
+          }
+          
+      }
+      t <- t/rowSums(t)
+  return(t)
+
+}
+```
+
+## Question 2: Etape M de L'algorithme EM 
+
+```{r}
+M.EM <- function(x,param,t){
+  set.seed(3)
+  K1<-ncol(t)
+  n <- nrow(x)
+  p <- ncol(x)
+  a=0
+  pi <- rep(0,K1)
+  for(k1 in 1:K1){
+    pi[k1] <- 0
+    for(i in 1:n){
+        pi[k1]=pi[k1]+t[i,k1]
+    }
+    pi[k1] <- pi[k1]/n
+  } 
+  mu1 <- matrix(0,K1,p)
+  for(k1 in 1:K1){
+    a=0
+    for(i in 1:n){
+      mu1[k1,] <- mu1[k1,] +t[i,k1]*x[i,]
+      a=a+t[i,k1]
+    }
+    mu1[k1,] <- mu1[k1,]/a
+  }
+parameters <-list(proportions=pi,mu=mu1)
+return(parameters)
+  
+}
+
+```
+
+## Question 3: Algortihme  EM complet 
+```{r}
+EM <-  function(x,k){
+  set.seed(3)
+  param=init.EM(x,k)
+  t=E.EM(x,param)
+  param.new <- M.EM(x,param,t)
+  iter=0
+  while((sum(abs(unlist(param.new)-unlist(param)))>(0.5e-28))){
+    t=E.EM(x,param.new)
+    param <- param.new
+    param.new <- M.EM(x,param,t)
+    iter<-iter+1
+    
+  }
+  iter
+  #return(c(param.new,iter))
+  return(param.new)
+}
+
+EM(X,3)
+
+
+```
+
+#Remarques:
+1. Le vecteur "proportions" et nks/200 sont proches
+2. Les lignes de la matrice "mu"  sont permutées  mais les valeurs obtenues sont proches des valeurs initiales(matrice M initiale )
+
+## Question 4:
+Fonction calculant la logvraisemblance completé en fonction des parametres ( pour la formule voir  exercice 2 question 1)
+```{r}
+log_vraisemblance <- function(parameters){
+  mu <- parameters$mu
+  pi <- parameters$proportions
+  a=0
+  for(i in 1:nrow(X)){
+    b=0
+    for(k in 1:nrow(parameters$mu)){
+      c=0
+      for (j in 1:ncol(X)){
+        c=c+((X[i,j]*log(mu[k,j]))+((1-X[i,j])*log(1-mu[k,j])))
+      }
+      b=b+(Zik[i,k]*(log(pi[k]))+Zik[i,k]*c)
+    }
+    a=a+c
+      
+  }
+  return(a)
+  
+}
+```
+#fonction tracant la logvraisemblance compléte a chaque demi-etape 
+```{r}
+vraisemblance_plot <-  function(x,k){
+  E=c()
+  M=c()
+  parameters=init.EM(x,k)
+  E=c(log_vraisemblance(parameters))
+  tik=E.EM(x,parameters)
+  parameters.new=M.EM(x,parameters,tik)
+  M <- c(log_vraisemblance(parameters.new))
+  iter=0
+  while((sum(abs(unlist(parameters.new)-unlist(parameters)))>(1e-28))){
+    tik=E.EM(x,parameters.new)
+    parameters <- parameters.new
+    E <- c(E,log_vraisemblance(parameters.new))
+    parameters.new <- M.EM(x,parameters,tik)
+    M <- c(M,log_vraisemblance(parameters.new))
+    iter<-iter+1
+    
+  }
+  iter
+  plot(E,type='l')
+  plot(M,type='l')
+}
+vraisemblance_plot(X,3)
+
+
+```
+Le tracé n'aboutit pas du a une production de NaN que nous ne sommes pas parvenus a identifier 
+
+##Question 5:
+
+$$\hat{K}_{BIC}=\smash{\mathop{{\rm argmax}}\limits_{k}}\,(\ln(P_{\hat{\theta}}(X))-\frac{d_k}{2}\log(n))$$
+On définit la fonction $$\ln(P_{\hat{\theta}}(X)) $$ qui prend k comme paramètres et renvoie la logvraisemblance de l'echantillon X
+```{r,warning=FALSE, error=FALSE}
+log_chapeau=function(k){
+  parameters <- EM(X,k)
+  mu <- parameters$mu
+  pi <- parameters$proportions
+  a=0
+  for(i in 1:nrow(X)){
+    b=0
+    for(l in 1:nrow(parameters$mu)){
+      c=1
+      for (j in 1:ncol(X)){
+        c=c*(((mu[l,j])**X[i,j])*((1-mu[l,j])**(1-X[i,j])))}
+      b=b+pi[l]*c}
+    a=a+log(b)}
+  return(a)
+}
+
+```
+```{r,warning=FALSE, error=FALSE}
+KBIC=function(k){
+  
+  bic=log_chapeau(k)-(log(n)*((k*p+k-1)/2))
+  return (bic)
+}
+#KBIC((10))
+
+```
+#Plot de l'evolution du critére BIC en fonction de k
+On voit que le critére atteint son max en k egale 3 sur nos données simulés ce qui correspond bien au nombre de classe initiale de notre mixture 
+```{r,warning=FALSE, error=FALSE}
+a=c()
+for (i in 1:5){
+  a=c(a,KBIC(i))
+}
+plot(a,type="l",col="red")
+
+```
+```{r, warning=FALSE, error=FALSE}
+optimize(KBIC,lower=2,upper=4,maximum = TRUE)
+```
+K=3 correspond a une logvraisemblance maximal egale à 5639.367
+
+##Question 6:
+
+$$ \hat{K}_{ICL}=\smash{\mathop{{\rm argmax}}\limits_{k}}\,( \mathbb{E}_{/X}[ln(P_{\hat{\theta}}(X,Z))]-\log(n)\frac{d_k}{2}) $$
+```{r}
+
+log_icl_error <- function(k){
+   Zik <- matrix(0,nrow=200,ncol=k)
+for( i in 1:200){
+  for(k1 in 1:k){
+    if(Z[i]==k1)
+    Zik[i,k1]=1
+  }
+}
+  parameters <- EM(X,k)
+  mu <- parameters$mu
+  pi <- parameters$proportions
+  a=0
+  for(i in 1:nrow(X)){
+    b=0
+    for(k in 1:nrow(parameters$mu)){
+      c=0
+      for (j in 1:ncol(X)){
+        c=c+(X[i,j]*log(mu[k,j]+0.001)+((1-X[i,j])*log(1-mu[k,j]-0.001))) ## Parce que tu l'as fait et ça marche sinon ça retourne un indice hors limite et des NAN
+        
+      }
+      b=b+(Zik[i,k]*log(pi[k]+Zik[i,k]*c))
+    }
+    a=a+b
+  }
+  return(a)}
+```
+
+```{r}
+log_icl <- function(k){
+  Zik <- matrix(0,nrow=200,ncol=k)
+for( i in 1:200){
+  for(k1 in 1:k){
+    if(Z[i]==k1)
+    Zik[i,k1]=1
+  }
+}
+  z <- Zik
+  n <- nrow(X)
+  p <- ncol(X)
+  param <- EM(X,k)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(l in 1:k){
+      a=0
+      for (j in 1:p){
+        a=a+((X[i,j]*log(mu[l,j]+0.001)))+((1-X[i,j])*log(1-(mu[l,j]-0.001)))#j'ajoute 0.01 car il semble qu'il y ait des valeurs de mu qui soit egale a 1 ou tres proche de 0
+      #print(mu[k1,j])
+      }
+      #print(a)
+      c=c+(z[i,l]*(log(pi[l])+a))
+    }
+ 
+    b=b+c
+      
+  }
+  return(b)
+}
+```
+
+```{r}
+KICL=function(k){
+  icl=mean(log_icl(k))-(log(n)*((k*p+k-1)/2))
+  return (icl)
+}
+```
+
+```{r}
+a=c()
+for (i in 1:5){ #ça rame si je prends 50
+  a=c(a,KICL(i))
+}
+#a
+plot(a,type="l",col="red")
+
+```
+```{r,warning=FALSE, error=FALSE}
+optimize(KICL,lower=2,upper=4,maximum = TRUE)
+```
+
+# Exercice 4: Données state-firearms
+Nous allons appliquer notre algorithme EM apres avoir trouvé le nombre de classes de nos données a l'aide du critére BIC implémentée précédemment. 
+Télécharger la base de données sur https://www.kaggle.com/jboysen/state-firearms#raw_data.csv
+```{r}
+#upload de la data set 
+#make sure to download the dataset and replace the file path in the read.table function 
+statefirearms<-read.table(file="/Users/princessemame/ANAD 2019/raw_data.csv",sep=",",header=TRUE)
+```
+
+```{r}
+#transfert des données dans une matrice de la meme forme que X( simulé plus haut )
+x <- statefirearms[,3:136]
+Y <- matrix(3455,1350,133)
+for(i in 1:1350){
+  for (j in 1:133){
+    Y[i,j] =x[i,j]
+  }
+}
+
+```
+
+##Etude sur les lignes:
+Nous allons utlisé le critere BIC  pour determiner le nombre de composantes k de notre dataset. Aprés avoir determiner k nous allons appliquer l'algorithme EM pour trouver les paramétres de notre mélange.
+#fonc
+```{r}
+logvraisXk <- function(k){
+  x <- Y
+  n <- nrow(x)
+  p <- ncol(x)
+  param <- EM(x,k)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(d in 1:K){
+      a=1
+      for (j in 1:p){
+        a=a*(((mu[d,j])**x[i,j])*((1-mu[d,j])**(1-x[i,j])))
+       
+      }
+      c=c+pi[d]*a
+    }
+    b=b+log(c)
+      
+  }
+  return(b)
+}
+n <- nrow(Y)
+p <- ncol(Y)
+critbic <- function(k){
+
+  a <- logvraisXk(k)-(log(n)*((k*(p+1)-1)/2))
+  
+  return(-a)#on prend -a parce que la fonction optim minimise donc s on minine -a  ca veut dire quon maximise a 
+}
+```
+#determination du k 
+nous avons tracé le critere bic en fonction de k sur l'intervalle 1:11. Du fait de l'imbrication de boucles et de la taille des données la compilation prend plusieurs minutes nous avons donc décidé , pour eviter d'avoir a recompiler a chaque fois de stocker le resultat obtenu dans un fichier qui vous a ete transmis en piece jointe. Si vous souhaitez proceder à la compilation il vous suffira de "decommenter" les lignes suivantes.
+
+```{r, include=FALSE}
+#val <- c()
+#for (k in 1:5){
+  #val=c(val,critbic(k))
+#}
+#for (k in 7:10){
+  #val=c(val,critbic(k))
+#}
+#val=c(val,critbic(11))
+#plot(val,type="l",)
+#valeurbic <- val
+#write.table(valeurbic, file = "VALEUR BICoff", append = FALSE, quote = TRUE, sep = ";")
+#You can download the file "VALEUR BICoff" which was attached alos attached in the or "uncomment" the previous line which may take a little time to run 
+valeurbic <- read.table(file = "/Users/princessemame/ANAD 2019/VALEUR BICoff",sep=";",header=TRUE)
+plot(-valeurbic$x,type="l")
+```
+Il semblerait que le maximum pour le critére BIC sois obtenue avec $k = 10$ 
+Appliquons notre algorithme EM a nos données avec k=10
+```{r}
+#A <- EM(Y,10)
+```
+#Rseultat
+la compilation prend plusieurs minutes nous avons donc décidé , pour eviter d'avoir a recompiler a chaque fois de stocker les resultats obtenu dans un fichier qui vous a ete transmis en piece jointe. Si vous souhaitez proceder à la compilation il vous suffira de "decommenter" les lignes suivantes.
+```{r}
+#write.table(A$mu, file = "Vecteur moyenne", append = FALSE, quote = TRUE, sep = ";")
+#write.table(A$proportions, file = "Vecteur proportions", append = FALSE, quote = TRUE, sep = ";")
+```
+
+#a matrice des vecteurs moyennes
+```{r}
+vecteur_moyene <- read.table(file = "/Users/princessemame/ANAD 2019/Vecteur moyenne",sep=";",header=TRUE)
+vecteur_moyene
+```
+#vecteur des propotions
+```{r}
+vecteur_proportions <- read.table(file = "/Users/princessemame/ANAD 2019/Vecteur proportions",sep=";",header=TRUE)
+vecteur_proportions
+```

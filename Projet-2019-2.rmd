@@ -1,0 +1,69 @@
+---
+title: "Mélange de Bernoulli"
+author: ""
+date: "24/10/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Modèle
+
+
+Considérons un vecteur aléatoire binaire $\boldsymbol{x} \in [0,1]^p$ de $p$ variables $x_j$ suivant chacune
+une distribution de Bernoulli $\mathcal{B}(\mu_j)$. La distribution du vecteur s'exprime comme:
+$$
+p(\boldsymbol{x}| \boldsymbol{\mu}) = \prod_{j=1}^p \mu_j^{x_j} (1-\mu_j)^{1-x_j}, 
+$$
+avec $\boldsymbol{x}=(x_1, \cdots, x_p)^T$ et  $\boldsymbol{\mu}=(\mu_1, \cdots, \mu_p)^T$.
+
+Soit une distribution  mélange à $K$ composantes  de Bernoulli
+$$
+p(\boldsymbol{x} | \boldsymbol{\pi}, \boldsymbol{M}) = \sum_{k=1}^K
+                  \pi_k p(\boldsymbol{x} | \boldsymbol{\mu}_k)
+$$
+où les $\pi_k$ sont les proportions du mélange et les $p(\boldsymbol{x} | \boldsymbol{\mu}_k)$ sont des distributions de Bernoulli multivariées de
+paramètres  $\boldsymbol{\mu}_k=(\mu_{k1}, \cdots, \mu_{kp})^T$, et $M=\{\boldsymbol{\mu}_1, \cdots , \boldsymbol{\mu}_K\}^T$
+la matrice des paramètres des densités de classes.
+
+Dans la suite nous considérerons
+\begin{itemize}
+\item un échantillon observé $X = \{\boldsymbol{x}_1, \cdots, \boldsymbol{x}_n\}$ issu de cette distribution mélange, 
+\item des  variables latentes $Z=\{z_1, \cdots, z_n\}$ indiquant la composante d'origine de chaque $\boldsymbol{x}_i$.  
+\end{itemize}
+
+```{r , echo=FALSE,  warning=FALSE, error=FALSE, include=FALSE}
+library(tidyverse)
+library(reshape2)
+```
+  
+## Simulation
+```{r}
+set.seed(3)
+K<-3
+p<-50
+n<-200
+pi<-c(1/3,1/3,1/3)
+M<-matrix(runif(K*p),K,p)
+M[K,]<-1-M[1,]
+nks<-rmultinom(1,200,prob = pi)
+Z<-rep(1:length(nks),nks)
+X <-do.call(rbind, 
+                  mapply(function(nk,k){
+                    matrix(rbernoulli(nk*p,p=M[k,]),
+                           nrow = nk,
+                           ncol=p,
+                           byrow = TRUE)}, nks,1:K))
+
+kmeans(X,3,nstart = 10)->res.kmeans
+tidyData<-melt(X[order(res.kmeans$cluster),order(M[1,])])
+
+ggplot(tidyData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_brewer(aesthetics = "fill") + 
+  labs(x="Variables", y="Individus", title="Matrix") 
+```
+
+

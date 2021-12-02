@@ -1,0 +1,93 @@
+---
+title: "Mixture Model with mclust"
+author: "Christophe Ambroise"
+date: "22/10/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The `mclust` package
+
+For more details on using `mclust` see  [the mclust vignette](https://www.stat.washington.edu/sites/default/files/files/reports/2012/tr597.pdf).
+
+
+## Univariate mixture
+
+
+ Simulate  a sample of size 1000 of a  one dimensional mixture of two gaussians with respective means, variances and proportions
+    $\mu_1=0$, $\mu_2=4$ $\sigma_1=1$,  $\sigma_2=\frac{1}{2}$, $\pi_1=\frac{1}{3}$.
+    
+```{r}
+nks<-rmultinom(1,1000,prob = c(1/3,2/3))
+means<-c(0,4)
+sds<-c(1,1/2)
+samples <- mapply(function(nk,mean,sd){rnorm(nk,mean,sd)},
+                  nks,
+                  means,
+                  sds)
+hist(x<-unlist(samples))
+
+curve(dnorm(x,mean=4,sd=1/2),-2,7,col="blue")
+curve(dnorm(x,mean=0,sd=1),-2,7,col="orange",add=TRUE)
+
+mixture<-function(x){
+  1/3* dnorm(x,mean=0,sd=1)+
+  2/3* dnorm(x,mean=4,sd=1/2) 
+    }
+curve(mixture(x),-2,7,col="red",add=TRUE)
+
+res.kmeans<-kmeans(x,2,nstart = 10)
+list.of.cluster<- split(data.frame(x),res.kmeans$cluster)
+mapply(function(cluster){paste("mean:", mean(cluster[[1]]),
+                                "sd: ",sd(cluster[[1]]),"\n")},list.of.cluster)
+```
+    
+
+## Bivariate gaussian
+
+```{r}
+library(mclust)
+data("faithful")
+plot(faithful)
+```
+The data visually display two main groups of eruptions. 
+
+Let us run `mclust`
+```{r}
+faithfulMclust <- Mclust(faithful)
+summary(faithfulMclust)
+```
+
+In the case of the best model chosen with BIC, the parameters are:
+```{r}
+summary(faithfulMclust, parameters = TRUE)
+```
+
+```{r}
+plot(faithfulMclust)
+```
+
+- The classification is obtained via the MAP
+- The uncertainty in the classification associated with conditional probabilities z can be obtained by subtracting the probability of the most likely group for each observation from 1
+
+
+
+```{r}
+res.hclust<-hclust(dist(faithful), method="ward.D2")
+plot(res.hclust)
+cutree(res.hclust,3)->hclust.3.clustering
+cutree(res.hclust,2)->hclust.2.clustering
+mclust.3.clustering<-Mclust(faithful,3)
+mclust.2.clustering<-Mclust(faithful,2)
+```
+
+```{r}
+table(mclust.2.clustering$classification,hclust.2.clustering)
+table(mclust.3.clustering$classification,hclust.3.clustering)
+```
+
+Allmost identical results for 2 cluster, but very different results for 3 clusters. 
+

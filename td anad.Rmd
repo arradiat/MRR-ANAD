@@ -1,0 +1,103 @@
+---
+title: "Td analyse de données"
+author: "TOURE MAME DIARRA"
+date: "16 septembre 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#exercice1
+```{r}
+1-pnorm(120,mean=100,sd=15)
+#c'est la moyenne donc c'est normal que ca divise en deux
+pnorm(100,mean=100,sd=15)
+library(ggplot2)
+QI.sup.120<-function(x){
+  ifelse(x>120,dnorm(x,mean=100,sd=15),NA)
+}
+ggplot(data.frame(x=c(20,180)),aes(x)) + stat_function(fun=dnorm,args=list(mean=100,sd=15))+stat_function(fun=QI.sup.120,geom="area",fill="coral",alpha=0.3) + geom_vline(xintercept=120)
+
+#plus  simlple
+curve(dnorm(x,mean=100,sd=15),20,180)
+```
+
+```{r}
+n=seq(100,100000,by=500)
+varx<-apply(cbind(n),1,function(m){x<-rnorm(m,mean=100,sd=15)
+var(x)})
+#biaisé
+plot(sqrt(varx))
+abline(h=15)
+#nonbiaisee
+plot(sqrt(n/(n-1))*sqrt(varx))
+abline(h=15)
+
+```
+
+```{r}
+n<-10
+x<-rnorm(10,100,15)
+sigma2ML<-mean((x-mean(x))**2)
+sigma2stat<-(-n/(n-1))*sigma2ML
+
+if(var(x)==sigma2ML){
+paste("R utilise le biaisée")
+  } else{
+paste("R utilise le non biaisée")
+}
+
+
+```
+##exercice 3
+```{r}
+summary(iris)
+plot(iris)
+pairs(iris[,1:4],col=iris$Species)
+```
+
+```{r}
+library(tidyverse)
+data(iris)
+parameters<-as.tibble(iris) %>% select(-"Species")%>%
+  gather(factor_key=TRUE)%>%
+  group_by(key)%>%
+  summarise(mean=mean(value),sd=sd(value))%>%
+  mutate(min=mean-2*sd,max=mean+2*sd)
+  #pipe sum(a^2)<=> a^2%>%sum()
+  
+
+flower.outliers <-(apply(t((t(iris[,1:4])<parameters$min)+(t(iris[,1:4])>parameters$max)),1,sum)>0)
+
+ggplot(iris,aes(x=Sepal.Length,y=Sepal.Width))+
+  geom_point(colour=as.numeric(iris$Species),size=flower.outliers*2+1)
+```
+Les couleurs represente les types de fleurs les disques avec les plus diametre sont ceux avec des diametre superieurs ou inferieur a mean plus ou moins 2 sd donc les fleurs de tailles extremes 
+##exercice 4
+```{r}
+##question 1
+library(MASS)
+#generate
+sigma=matrix(c(2,1,1,0.75),2,2)
+mu=c(0,0)
+mvrnorm(1000,mu,sigma)
+```
+```{r}
+par(mfrow=c(1,3)) # partage laffichage en 2
+Q<-qchisq(p=seq(0.05,0.95,by=0.1),df=2)
+sigma<-matrix(c(2,1,1,0.75),2,2)
+Y<-matrix(rnorm(2000),1000,2)%*%chol(sigma)
+plot(Y,xlab="x",ylab="y",pch='.')
+x<-seq(-4,4,length=100)
+y<-seq(-4,4,length=100)
+sigmainv<-solve(sigma)
+a<-sigmainv[1,1]
+b<-sigmainv[2,2]
+c<-sigmainv[1,2]
+z<-outer(x,y,function(x,y) (a*x^2+b*y^2+2*c*x*y))
+image(x,y,z)
+contour(x,y,z,col="blue4",levels=Q,labels=seq(from=0.05,to=0.95,by=0.1),add=T)
+persp(x,y,1/(2*pi)*det(sigmainv)^(-1/2)*exp(-0.5*z),col="cornflowerblue")
+```
+

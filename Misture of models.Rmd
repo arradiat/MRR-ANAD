@@ -1,0 +1,66 @@
+---
+title: "Mixture of models anad"
+author: "Mame Diarra Toure"
+date: "10/14/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#generate a sample of a mixture of two gaussians
+
+```{r}
+Zi <- rmultinom(1,1000,c(1/3,2/3))
+X1 <- rnorm(Zi[1,1],0,1)
+X2 <- rnorm(Zi[2,1],4,1/2)
+mixt <- cbind(X1,X2)
+hist(mixt,col="green")
+
+```
+#correction prof
+```{r}
+nks <- rmultinom(1,1000,prob = c(1/3,2/3))
+means=c(0,4)
+sds=c(1,1/2)
+sample <- mapply(function(nks, mean,sd){
+  rnorm(nks,mean,sd)},nks,means,sds)
+sample <- unlist(sample)
+hist(unlist(sample),col="purple",probability = TRUE, breaks=30)
+```
+```{r}
+curve(dnorm(x), -3,7,col="green", ylim=c(0, 0.8))
+curve(dnorm(x, 4, 1/2), -3,7, col="orange", add=T)
+mixture <- function(x){1/3*dnorm(x)+2/3*dnorm(x,4,1/2)}
+curve(mixture(x), -3,7, col="red", add=T)
+```
+kmeans: les gaussiennes sont identifible a la permutation pres , l'ordrre ou l numero de classe n'a pas d'importance 
+
+```{r}
+res <- kmeans(sample, 2, nstart = 1000, algorithm = "Hartigan-Wong", iter.max = 100)
+resGroup <- res$cluster
+hist(sample, probability = T, breaks = 30,col="grey")
+points(sample,rep(0,1000), col=c("blue", "red")[resGroup], pch=c(1,2)[resGroup])
+
+listofsamples <- split(data.frame(sample),res$cluster)
+lapply(listofsamples,function(x){
+  mean(x[[1]])
+})
+lapply(listofsamples,function(x){sd(x[[1]])})
+
+```
+
+#question4
+```{r}
+library(mclust)
+test=Mclust(data.frame(unlist(sample)),G=2)
+#Il part d'une initialisation specifique (specification hierarchique (algorithme))
+#E: sigma_1=sigma_2=0
+#V sigma_1 different de sigma_2
+str(test)
+```
+```{r}
+test=Mclust(data.frame(unlist(sample)))
+```
+
+

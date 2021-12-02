@@ -1,0 +1,70 @@
+---
+title: "Td ANAD 2"
+author: "Mame Diarra Toure"
+date: "9/23/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##exercice1 partition et matrice 
+```{r}
+library(nnet)
+data(iris)
+class.ind(iris$Species)->Part_matrix
+#Part_matrix
+#autre méthode
+C=matrix(0,nrow(iris),3)
+for (i in 1:nrow(iris)){
+  C[i,as.numeric(iris$Species[i])]
+}
+
+#deuxieme partie 
+a<-t(Part_matrix)%*%as.matrix(iris[,1:4])
+nk= apply(Part_matrix,2,sum)
+M<-a/nk
+M
+```
+##exercice 4
+
+```{r}
+data(crabs)
+pairs(crabs[,4:8],col=c("purple","pink")[crabs$sp],pch=c(5,8))
+corrplot(cor(crabs[,4:8]))
+```
+le truc qui saute aux yeyx la dessus c'est que toutes les variables sont correlées 
+```{r}
+km <- kmeans(crabs[,4:8],4)
+```
+
+
+```{r}
+pairs(crabs[,4:8],col=c("purple","pink","yellow","red")[km$cluster],pch=c(5,8,1,21))
+```
+
+```{r}
+ss=c()
+for(k in 1:1000){
+  a=kmeans(crabs[,4:8],4)
+  ss[k]=a$tot.withinss
+}
+hist(ss,col="green")  
+```
+on peut voir que la solution n'est pas le meme a chaque fois et que certains modeles donnent de meilleurs resultats que les autres 
+```{r}
+which.max(colMeans(cor(crabs[,4:8])))
+```
+```{r}
+crabs1 <- (crabs[,4:8])/(crabs[,6])
+crabs1 <- crabs1[,-3]
+names(crabs1) <- paste(names(crabs[,c(4,5,7,8)]),"/CL")
+corrplot(cor(crabs1))
+```
+```{r}
+km1 <- kmeans(crabs1,4,nstart = 30)
+clust <- km1$cluster
+natural.classes <- paste(crabs$sex,crabs$sp,sep="-")
+table(clust,natural.classes)
+```
+

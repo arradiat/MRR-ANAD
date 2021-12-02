@@ -1,0 +1,78 @@
+---
+title: "td anad(data SPAM)25 nov"
+author: "Mame Diarra Toure"
+date: "11/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(kernlab)
+library(FactoMineR)
+library(tidyverse)
+```
+
+
+```{r}
+data(spam)
+```
+
+```{r}
+spam
+```
+#ACP de base
+```{r}
+spam%>%PCA(.,quali.sup = ncol(spam))%>%plot(habillage=ncol(spam),choix="ind")
+#quali.sup =58 ca fait quil ne prend pas la derniere colonne  en compte mais il s'en sert pour faire des groupe je crois 
+```
+# on refait la meme chose avec prcomp
+```{r}
+res <- prcomp(spam[,-58],scale. = T) 
+plot(res$x[,1:2],col=as.numeric(spam$type))
+barplot((res$sdev)**2)
+```
+```{r}
+set.seed(1)
+train <- sample(1:nrow(spam),1000)
+X <- spam[sample(1:nrow(spam),1000),-58 ]
+res <- prcomp(X) 
+plot(-res$x[,1:2],col=as.numeric(spam$type))
+reskpca1 <- kpca(~.,data=X,kernel="vanilladot",kpar=list(),features=2)
+#vanilla dot ca revient a faire acp car ca prend le produit scalaire normal 
+plot(rotated(reskpca1),col=as.integer(spam[train,58]))
+#sors les mails projete dans l'espace de kpca i dont know what that means 
+```
+```{r}
+reskpca2 <- kpca(~.,data=X,kernel="rbfdot",kpar=list(sigma=1/500),features=57)
+plot(-rotated(reskpca2),col=as.integer(spam[train,58]))
+```
+```{r}
+reskpca3<- kpca(~.,data=X,kernel="polydot",kpar=list(degree=2),features=57)
+plot(rotated(reskpca3)[,1:2],col=as.integer(spam[train,58]))
+```
+
+Acp c'est du non supervisée 
+```{r}
+cumsum(eig(reskpca3))/sum(eig(reskpca3))
+```
+ca veut dire que la transformation a donne un truc  bcp plus informatif que les valer propres initiales ca veut aussi dire que deux compoant suffisent car il regroupe toutes les infos
+#essayer de programmer kpca nous meme avec la formule gaussien qu'on a trouvé 
+
+premiere etape produire K 
+
+K=as.matrix(X)%*%t(as.matrix(X))#noyau linéaire
+noyau gaussien 
+for(i in 1:nrow(X)){
+for (j in 1:i){
+K[i,j] = exp((-sum(X[i,]-X[j,])**2)/sigma**2
+K[j,i]=K[i,j]
+}
+}
+
+
+
+
+

@@ -1,0 +1,116 @@
+---
+title: "EM pour un mélange de k gaussiennes"
+author: "Mame Diarra Toure"
+date: "10/21/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+nks <- rmultinom(1,5,prob = c(1/3,2/3))
+means=c(0,4)
+sds=c(1,1/2)
+sample <- mapply(function(nks, mean,sd){
+  rnorm(nks,mean,sd)},nks,means,sds)
+x <- unlist(sample)
+x <- data.frame(x)
+```
+```{r}
+
+```
+
+
+```{r}
+Init.EM <- function(x,k){
+  proportions <- rep(1/k,k)
+  var=rep(1,k)
+  means=x[sample(1:nrow(x),k),]
+  parameters=list(proportions=proportions,means=means,var=var)
+  return(parameters)
+}
+#Init.EM(x,2)
+```
+
+```{r}
+K=2
+E.EM <- function(x,parameters){
+  K<-length(parameters$means)
+  tik <- matrix(0,nrow=nrow(x),ncol=K)
+      for (k in 1:K){
+        pik <- parameters$proportions[k]
+        muk <- parameters$means[k]
+        sigk <- parameters$var[k]
+      tik[,k] <- (pik*dnorm(x[,1],mean=muk,sd=sigk))
+  
+      }
+  tik <- tik/rowSums(tik)
+  return(tik)
+}
+```
+
+
+```{r}
+a=E.EM(x,Init.EM(x,2))
+a
+```
+
+
+```{r}
+rowSums(a)
+```
+```{r}
+a/rowSums(a)
+```
+```{r}
+2.341832*10^(-05)/0.0006148891
+```
+
+```{r}
+M.EM <- function(x,parameters,tik){
+  K<-ncol(tik)
+  muk<-rep(0,K)
+  sigk<-rep(0,K)
+  
+  for(k in 1:K){
+    muk[k] <- sum(tik[,k]*x)/sum(tik[,k])
+    sigk[k] <- sqrt(sum(tik[,k]*(x-muk[k])**2)/sum(tik[,k]))
+  }
+pik <- colSums((tik))/nrow(x)
+parameters <-list(proportions=pik,means=muk,var=sigk)
+return(parameters)
+}
+M.EM(Init.EM(x,K),E.EM(x,Init.EM(x,K)))
+```
+
+```{r}
+EM <-  function(x,k){
+  parameters=Init.EM(x,k)
+  tik=E.EM(x,parameters)
+  parameters.new <- M.EM(parameters,tik)
+  iter=0
+  while(sum(abs(unlist(parameters.new)-unlist(parameters)))>(1e-20)){
+    tik=E.EM(x,parameters.new)
+    parameters <- parameters.new
+    parameters.new <- M.EM(parameters,tik)
+    print(parameters.new)
+    print(parameters)
+    print((sum(abs(unlist(parameters.new)-unlist(parameters)))>(1e-20)))
+    iter<-iter+1
+    print(iter)
+  }
+  iter
+  return(c(parameters.new,iter))
+}
+EM(x,K)
+```
+
+### exo 2 td mixtures
+
+
+```{r}
+
+```
+

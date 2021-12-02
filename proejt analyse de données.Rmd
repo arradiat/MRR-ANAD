@@ -1,0 +1,391 @@
+---
+title: "projet analyse de données"
+author: "Mame Diarra Toure"
+date: "12/24/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r , echo=FALSE,  warning=FALSE, error=FALSE, include=FALSE}
+library(tidyverse)
+library(reshape2)
+```
+  
+## Simulation
+```{r}
+set.seed(3)
+K<-3
+p<-50
+n<-200
+pi<-c(1/3,1/3,1/3)
+M<-matrix(runif(K*p),K,p)
+M[K,]<-1-M[1,]
+nks<-rmultinom(1,200,prob = pi)
+Z<-rep(1:length(nks),nks)
+X <-do.call(rbind, 
+                  mapply(function(nk,k){
+                    matrix(rbernoulli(nk*p,p=M[k,]),
+                           nrow = nk,
+                           ncol=p,
+                           byrow = TRUE)}, nks,1:K))
+
+kmeans(X,3,nstart = 10)->res.kmeans
+tidyData<-melt(X[order(res.kmeans$cluster),order(M[1,])])
+
+ggplot(tidyData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_brewer(aesthetics = "fill") + 
+  labs(x="Variables", y="Individus", title="Matrix") 
+```
+algorithme EM
+```{r}
+init.EM <- function (x,r){
+  proportions <- rep(1/r,r)#initialisation des proportions
+  eps <- 0.1
+  n <- nrow(x)
+  p <- ncol(x)
+  A <- x[sample(1:nrow(x),r),]
+  mu1 <- matrix(233,r,p)
+  if(r==1){
+    for( i in 1:p){
+      if(A[i]==0){
+      mu1[1,i] <- eps
+      }
+      else{
+        mu1[1,i] <- (1-eps)
+      
+      }
+    }
+  }
+  else{
+      for(l in 1:r){
+        for( i in 1:p){
+            if(A[l,i]==0){
+                mu1[l,i] <- eps
+      }
+            else{
+        mu1[l,i] <- (1-eps)
+      
+      }
+      
+    }
+  }
+  }
+  parameters=list(proportions=proportions,mu=mu1)
+  return(parameters)
+}
+```
+
+
+```{r}
+Zik <- matrix(0,nrow=200,ncol=3)
+for( i in 1:200){
+  for(k in 1:3){
+    if(Z[i]==k)
+    Zik[i,k]=1
+  }
+} 
+```
+
+
+```{r}
+p<- init.EM(X,K)
+nrow(p$mu)
+```
+```{r}
+E.EM <- function(x,param){
+  set.seed(3)
+  K1<-nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  n <- nrow(x)
+  p <- ncol(x)
+  t <- matrix(0,n,K1)
+      for( i in 1:n){
+        for(k1 in 1:K1){
+          a=1
+            for (j in 1:p){
+              a =a*((mu[k1,j]**x[i,j])*(1-mu[k1,j])**(1-x[i,j]))
+              
+            }
+            t[i,k1] <- pi[k1]*a     
+          }
+          
+      }
+      t <- t/rowSums(t)
+  return(t)
+
+}
+tik<- E.EM(X,init.EM(X,3))
+
+```
+
+```{r}
+M.EM <- function(x,param,t){
+  set.seed(3)
+  K1<-ncol(t)
+  n <- nrow(x)
+  p <- ncol(x)
+  a=0
+  pi <- rep(0,K1)
+  for(k in 1:K1){
+    pi[k] <- 0
+    for(i in 1:n){
+        pi[k]=pi[k]+t[i,k]
+    }
+    pi[k] <- pi[k]/n
+  } 
+  mu1 <- matrix(0,K1,p)
+  for(k in 1:K1){
+    a=0
+    for(i in 1:n){
+      mu1[k,] <- mu1[k,] +t[i,k]*x[i,]
+      a=a+t[i,k]
+    }
+    mu1[k,] <- mu1[k,]/a
+  }
+parameters <-list(proportions=pi,mu=mu1)
+return(parameters)
+  
+}
+param <- init.EM(X,K)
+t <- E.EM(X,param)
+M1 <- M.EM(X,param,t)
+M1
+```
+
+```{r}
+EM <-  function(x,k){
+  set.seed(3)
+  param=init.EM(x,k)
+  t=E.EM(x,param)
+  param.new <- M.EM(x,param,t)
+  iter=0
+  while((sum(abs(unlist(param.new)-unlist(param)))>(0.5e-28))){
+    t=E.EM(x,param.new)
+    param <- param.new
+    param.new <- M.EM(x,param,t)
+    iter<-iter+1
+    
+  }
+  iter
+  #return(c(param.new,iter))
+  return(c(param.new))
+}
+EM(X,3)
+
+```
+
+```{r}
+logvrais <- function(param){
+  x <- X
+  z <- Zik
+  n <- nrow(x)
+  p <- ncol(x)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(k in 1:K){
+      a=0
+      for (j in 1:p){
+        a=a+((x[i,j]*log(mu[k,j]))+((1-x[i,j])*log(1-mu[k,j])))
+      }
+      c=c+(z[i,k]*(log(pi[k])+a))
+    }
+    b=b+c
+      
+  }
+  return(b)
+  
+  
+}
+```
+
+```{r}
+plot.EM <-  function(x,k){
+  set.seed(3)
+  logE <- c()
+  logM <- c()
+  param=init.EM(x,k)
+  logE <- c(logE,logvrais(param))
+  t=E.EM(x,param)
+  param.new <- M.EM(x,param,t)
+  logM <- c(logM,logvrais(param.new))
+  iter=0
+  while((sum(abs(unlist(param.new)-unlist(param)))>(0.5e-28))){
+    t=E.EM(x,param.new)
+    param <- param.new
+    logE <- c(logE,logvrais(param))
+    param.new <- M.EM(x,param,t)
+    logM <- c(logM,logvrais(param.new))
+    iter<-iter+1
+    
+  }
+  iter
+  plot(logE,type='l')
+  plot(logM,type='l')
+  return(logM)
+}
+plot.EM(X,3)
+
+```
+```{r}
+vrais <- function(param){
+  x <- X
+  z <- Zik
+  n <- nrow(x)
+  p <- ncol(x)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b <- 1
+  for(i in 1:n){
+    c=1
+    for(k in 1:K){
+      a=pi[k]**z[i,k]
+      for (j in 1:p){
+        a=a*(((mu[k,j])**x[i,j])*((1-mu[k,j])**(1-x[i,j])))**z[i,k]
+       
+      }
+      c=c*(a)
+    }
+    b <- b*c
+      
+  }
+  return(b)
+}
+```
+
+```{r}
+plot.EM1 <-  function(x,k){
+  set.seed(3)
+  E <- c()
+  M <- c()
+  param=init.EM(x,k)
+  E <- c(E,vrais(param))
+  t=E.EM(x,param)
+  param.new <- M.EM(x,param,t)
+  M <- c(M,vrais(param.new))
+  iter=0
+  while((sum(abs(unlist(param.new)-unlist(param)))>(0.5e-28))){
+    t=E.EM(x,param.new)
+    param <- param.new
+    E <- c(E,vrais(param))
+    param.new <- M.EM(x,param,t)
+    M <- c(M,vrais(param.new))
+   
+    iter<-iter+1
+    
+  }
+  iter
+  plot(E)
+  plot(M)
+}
+plot.EM1(X,3)
+
+```
+
+#critére BIC
+
+```{r}
+logvraisX <- function(param){
+  x <- X
+  z <- Zik
+  n <- nrow(x)
+  p <- ncol(x)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(k in 1:K){
+      a=1
+      for (j in 1:p){
+        a=a*(((mu[k,j])**x[i,j])*((1-mu[k,j])**(1-x[i,j])))
+       
+      }
+      c=c+pi[k]*a
+    }
+    b=b+log(c)
+      
+  }
+  return(b)
+}
+```
+
+```{r}
+logvraisXk <- function(k){
+  x <- X
+  f <- matrix(0,nrow=200,ncol=k)
+  for( i in 1:200){
+  for(k1 in 1:k){
+    if(Z[i]==k1)
+    f[i,k1]=1
+  }
+  } 
+  z <- f
+  n <- nrow(x)
+  p <- ncol(x)
+  param <- EM(X,k)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(k in 1:K){
+      a=1
+      for (j in 1:p){
+        a=a*(((mu[k,j])**x[i,j])*((1-mu[k,j])**(1-x[i,j])))
+       
+      }
+      c=c+pi[k]*a
+    }
+    b=b+log(c)
+      
+  }
+  return(-b)
+}
+```
+
+
+```{r}
+n <- nrow(X)
+p <- ncol(p)
+fctk <- function(k){
+  a <- logvraisXk(k)-log(n)*((k*(p+1)-1)/2)
+  
+  return(-a)
+  
+}
+```
+
+
+```{r}
+optimize(logvraisXk,lower = 1,upper = 6, maximum = TRUE)
+```
+```{r}
+optim(par=1, logvraisXk,method="L-BFGS-B",lower = 1,upper = 3)
+```
+
+```{r}
+logvraisX(EM(X,3))
+```
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,66 @@
+---
+title: "td 02 decembre"
+author: "Mame Diarra Toure"
+date: "12/2/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(mlbench)
+set.seed(111)
+obj <- mlbench.spirals(100,1,0.025)
+my.data <- data.frame(4*obj$x)
+names(my.data ) <- c("X1","X2")
+plot(my.data)
+```
+```{r}
+par(mfrow=c(1,2))
+plot(my.data, col=c('orange','blue')[obj$classes],main="True classes")
+
+plot(my.data,col=c('orange','blue')[kmeans(my.data,2)$cluster],main="kmeans")
+```
+
+```{r}
+my.data <- as.matrix(my.data)
+```
+
+#matrix of similarity 
+
+```{r}
+sigma2 <- 1
+k <- exp(as.matrix(-dist(my.data)**2/sigma2)) #parce que sigma =1
+image(k) 
+classes <- obj$classes
+image(k[order(classes),order(classes)])
+```
+```{r}
+A <- k>0.5
+diag(A) <- 0
+D <- diag(colSums(A))
+L <- D-A
+plot(eigen(L)$vectors[order(classes),100])
+spectral.classes <- kmeans(eigen(L)$vectors[,100],2)$cluster
+spectral.classes
+plot(my.data,col=spectral.classes)
+```
+```{r}
+library(kernlab)
+sc <- specc(my.data,2,kernel="rbfdot")
+plot(my.data,col=sc)
+
+```
+```{r}
+PCA <- kpca(my.data,kernel="rbfdot")
+#pcv(PCA)
+#pcv  #c'est les composantes  principales 
+#rotated c'est les vecteurs propres
+pairs(pcv(kpca(~.,data=data.frame(my.data),kernel="rbfdot",kpar=list(sigma=2),features=3)),col=obj$classes)
+c'est mauvais parce que ta dista,ce de noyaux chaque point a tres peu de voisins 
+```
+
+
+
+

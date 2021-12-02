@@ -1,0 +1,523 @@
+---
+title: "projet analyse de données"
+author: "Mame Diarra Toure"
+date: "12/24/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r , echo=FALSE,  warning=FALSE, error=FALSE, include=FALSE}
+library(tidyverse)
+library(reshape2)
+```
+  
+## Simulation
+```{r}
+set.seed(3)
+K<-3
+p<-50
+n<-200
+pi<-c(1/3,1/3,1/3)
+M<-matrix(runif(K*p),K,p)
+M[K,]<-1-M[1,]
+nks<-rmultinom(1,200,prob = pi)
+Z<-rep(1:length(nks),nks)
+X <-do.call(rbind, 
+                  mapply(function(nk,k){
+                    matrix(rbernoulli(nk*p,p=M[k,]),
+                           nrow = nk,
+                           ncol=p,
+                           byrow = TRUE)}, nks,1:K))
+
+kmeans(X,3,nstart = 10)->res.kmeans
+tidyData<-melt(X[order(res.kmeans$cluster),order(M[1,])])
+
+ggplot(tidyData, aes(x = Var2, y = Var1)) + 
+  geom_raster(aes(fill=value)) + 
+  scale_fill_brewer(aesthetics = "fill") + 
+  labs(x="Variables", y="Individus", title="Matrix") 
+```
+#`vecteur Zik
+```{r}
+Zik <- matrix(0,nrow=200,ncol=K)
+for( i in 1:200){
+  for(k in 1:K){
+    if(Z[i]==k)
+    Zik[i,k]=1
+  }
+} 
+```
+
+##algorithme EM
+#initialisation des parametre 
+```{r}
+init.EM <- function (x,r){
+  proportions <- rep(1/r,r)#initialisation des proportions
+  eps <- 0.1
+  n <- nrow(x)
+  p <- ncol(x)
+  #initialisation des vecteurs moyenne (on prend rlignes de notre matrices x et on prend on remplace les 0 par eps et les 1 par 1-eps  )
+ mu1<-matrix(runif(r*p),r,p)
+  parameters=list(proportions=proportions,mu=mu1)
+  return(parameters)
+}
+```
+#etape E de l'algorithme EM 
+```{r}
+E.EM <- function(x,param){
+  set.seed(3)
+  K1<-nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  n <- nrow(x)
+  p <- ncol(x)
+  t <- matrix(20,nrow=nrow(x),ncol=K1)
+      for( i in 1:n){
+        for(k1 in 1:K1){
+          a=1
+            for (j in 1:p){
+              a =a*((mu[k1,j]**x[i,j])*(1-mu[k1,j])**(1-x[i,j]))
+            }
+            t[i,k1] <- pi[k1]*a     
+          }
+          
+      }
+      t <- t/rowSums(t)
+  return(t)
+
+}
+```
+#etape M de L'algorithme EM 
+```{r}
+M.EM <- function(x,param,t){
+  set.seed(3)
+  K1<-ncol(t)
+  n <- nrow(x)
+  p <- ncol(x)
+  a=0
+  pi <- rep(0,K1)
+  for(k1 in 1:K1){
+    pi[k1] <- 0
+    for(i in 1:n){
+        pi[k1]=pi[k1]+t[i,k1]
+    }
+    pi[k1] <- pi[k1]/n
+  } 
+  m <- matrix(0,K1,p)
+  for(k1 in 1:K1){
+    a=0
+  
+    for(i in 1:n){
+  
+      m[k1,] <- m[k1,] +t[i,k1]*x[i,]
+      a=a+t[i,k1]
+    }
+    m[k1,] <- m[k1,]/a
+  }
+parameters <-list(proportions=pi,mu=m)
+return(parameters)
+  
+}
+
+```
+##algortihme complet 
+```{r}
+EM <-  function(x,k){
+  set.seed(3)
+  param=init.EM(x,k)
+  t=E.EM(x,param)
+  param.new <- M.EM(x,param,t)
+  iter=0
+  while((sum(abs(unlist(param.new)-unlist(param)))>(0.5e-28))){
+    t=E.EM(x,param.new)
+    param <- param.new
+    param.new <- M.EM(x,param,t)
+    iter<-iter+1
+    
+  }
+  iter
+  #return(c(param.new,iter))
+  return(param.new)
+}
+```
+
+#essaie de l'algo sur nos donnees 
+```{r}
+#EM(X,3)
+```
+on compare le vecteur proportion a nks/200 et la matrice mu a la matrice M initiale 
+On vois que nos lignes sont permutés mais les valeurs obtenues sont proches des valeurs initiales
+##tracée evolution de la vraisemblance 
+#fonction qui calcule la logvraisemeblance complete
+```{r}
+logvraiscomp <- function(param){
+  x <- X
+  z <- Zik
+  n <- nrow(x)
+  p <- ncol(x)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(k in 1:K){
+      a=0
+      for (j in 1:p){
+        a=a+((x[i,j]*log(mu[k,j]))+((1-x[i,j])*log(1-mu[k,j])))
+      }
+      c=c+(z[i,k]*(log(pi[k])+a))
+    }
+    b=b+c
+      
+  }
+  return(b)
+  
+  
+}
+```
+#fonction tracant l'evolution de la logvraisemblance compléte 
+```{r}
+plot.EM <-  function(x,k){
+  set.seed(3)
+  logE <- c()
+  logM <- c()
+  param=init.EM(x,k)
+  logE <- c(logE,logvraiscomp(param))
+  t=E.EM(x,param)
+  param.new <- M.EM(x,param,t)
+  logM <- c(logM,logvraiscomp(param.new))
+  iter=0
+  while((sum(abs(unlist(param.new)-unlist(param)))>(1e-28))){
+    t=E.EM(x,param.new)
+    param <- param.new
+    logE <- c(logE,logvraiscomp(param))
+    param.new <- M.EM(x,param,t)
+    logM <- c(logM,logvraiscomp(param.new))
+    iter<-iter+1
+    
+  }
+  iter
+  plot(logE,type='l')
+  plot(logM,type='l')
+  return(logM)
+}
+plot.EM(X,3)
+```
+production de NaN
+#fonction qui calcule la vraisemblance complete
+```{r}
+vraiscomp <- function(param){
+  x <- X
+  z <- Zik
+  n <- nrow(x)
+  p <- ncol(x)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b <- 1
+  for(i in 1:n){
+    c=1
+    for(k in 1:K){
+      a=pi[k]**z[i,k]
+      for (j in 1:p){
+        a=a*(((mu[k,j])**x[i,j])*((1-mu[k,j])**(1-x[i,j])))**z[i,k]
+       
+      }
+      c=c*(a)
+    }
+    b <- b*c
+      
+  }
+  return(b)
+}
+```
+#tracé de l'evolution de la vraisemblance compléte
+```{r}
+plot.EM1 <-  function(x,k){
+  set.seed(3)
+  E <- c()
+  M <- c()
+  param=init.EM(x,k)
+  E <- c(E,vraiscomp(param))
+  t=E.EM(x,param)
+  param.new <- M.EM(x,param,t)
+  M <- c(M,vraiscomp(param.new))
+  iter=0
+  while((sum(abs(unlist(param.new)-unlist(param)))>(0.5e-28))){
+    t=E.EM(x,param.new)
+    param <- param.new
+    E <- c(E,vraiscomp(param))
+    param.new <- M.EM(x,param,t)
+    M <- c(M,vraiscomp(param.new))
+   
+    iter<-iter+1
+    
+  }
+  iter
+  plot(E)
+  plot(M)
+}
+plot.EM1(X,3)
+
+```
+Nous n'arrivons pas a obtenir le tracé attendu malgre le fait que notre algorithme EM rnvoie les bonnes valeurs 
+#critére BIC
+##fonction dependant de k a maximiser ( critere bic)
+on recupere la valeur de log(P sachant theta (X), avec l'algorithme EM et on y retir -dKlog(n)/2)
+```{r}
+logvraisXk <- function(k){
+  x <- X
+  n <- nrow(x)
+  p <- ncol(x)
+  param <- EM(X,k)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(d in 1:K){
+      a=1
+      for (j in 1:p){
+        a=a*(((mu[d,j])**x[i,j])*((1-mu[d,j])**(1-x[i,j])))
+       
+      }
+      c=c+pi[d]*a
+    }
+    b=b+log(c)
+      
+  }
+  return(b)
+}
+```
+
+
+```{r}
+critbic <- function(k){
+  a <- logvraisXk(k)-(log(n)*((k*(p+1)-1)/2))
+  
+  return(-a)#on prend -a parce que la fonction optim minimise donc s on minine -a  ca veut dire quon maximise a 
+}
+
+```
+```{r}
+val <- c()
+for (k in 1:5){
+  val=c(val,critbic(k))
+}
+```
+
+```{r}
+plot(val,type="l",)
+```
+#on voit bien que le critere bic est maximale( c'est un minimum sur le plot parce que qu'on a renvoyé - le critere) en 3 qui correspond a la au nombre classes de notre melange
+
+##utilisation de la fonction optim pour trouver une valeur k
+```{r}
+optim(par=1, critbic,method="L-BFGS-B",lower=3,upper=9)
+
+```
+#critere icl 
+
+#fonction dependant de k a maximiser ( critere icl) on prend l'esperance (donc la moyenne ici) de la logvraisemblance complete -dklog(n)/2
+```{r}
+logvraiscompXk <- function(k){
+  Zik <- matrix(0,nrow=200,ncol=k)
+for( i in 1:200){
+  for(k1 in 1:k){
+    if(Z[i]==k1)
+    Zik[i,k1]=1
+  }
+}
+  z <- Zik
+  n <- nrow(X)
+  p <- ncol(X)
+  param <- EM(X,k)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(k1 in 1:k){
+      a=0
+      for (j in 1:p){
+        a=a+((X[i,j]*log(mu[k1,j]+0.001)))+((1-X[i,j])*log(1-(mu[k1,j]-0.001)))#j'ajoute 0.01 car il semble qu'il y ait des valeurs de mu qui soit egale a 1 ou tres proche de 0
+      #print(mu[k1,j])
+      }
+      #print(a)
+      c=c+(z[i,k1]*(log(pi[k1])+a))
+    }
+ 
+    b=b+c
+      
+  }
+  return(b)
+  
+  
+}
+criticl <- function(k){
+  a <- mean(logvraiscompXk(k))-(log(n)*((k*(p+1)-1)/2))
+  return(-a)#on prend -a parce que la fonction optim minimise donc s on minine -a  ca veut dire quon maximise a 
+}
+
+```
+```{r}
+criticl(3)
+```
+```{r}
+val2 <- c()
+for (k in 2:5){
+  val2=c(val2,criticl(k))
+}
+```
+
+```{r}
+plot(2:5,-val2,type="l")
+```
+#j'ai des doutes sur le critére surtou avec les valeurs 0 et 1 de mu 
+#a revoir 
+#exo 4 
+#application 
+
+```{r}
+#upload de la data set 
+statefirearms<-read.table(file="/Users/princessemame/Downloads/raw_data.csv",sep=",",header=TRUE)
+#transfert des données dans une matric de la meme forme que X( simulé plus haut )
+x <- statefirearms[,3:136]
+Y <- matrix(3455,1350,133)
+for(i in 1:1350){
+  for (j in 1:133){
+    Y[i,j] =x[i,j]
+  }
+}
+```
+
+#Etude sur les lignes ( on considere chauqe ligne comme un vecteur d'observation) trouvons le nombre de classe qu'il faut avec le critére Bic 
+```{r}
+logvraisXk <- function(k){
+  x <- Y
+  n <- nrow(x)
+  p <- ncol(x)
+  param <- EM(x,k)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(d in 1:K){
+      a=1
+      for (j in 1:p){
+        a=a*(((mu[d,j])**x[i,j])*((1-mu[d,j])**(1-x[i,j])))
+       
+      }
+      c=c+pi[d]*a
+    }
+    b=b+log(c)
+      
+  }
+  return(b)
+}
+```
+
+
+```{r}
+n <- nrow(Y)
+p <- ncol(Y)
+critbic <- function(k){
+
+  a <- logvraisXk(k)-(log(n)*((k*(p+1)-1)/2))
+  
+  return(-a)#on prend -a parce que la fonction optim minimise donc s on minine -a  ca veut dire quon maximise a 
+}
+critbic(2)
+```
+# ca prend bcp de temp a run donc j'ai ecris les valeur dans un tableau pour quo'on est pas a le reexecuter a chauqe fois surement a cause des 3 boucles imbriquées 
+```{r}
+#val <- c()
+#for (k in 1:5){
+  #val=c(val,critbic(k))
+#}
+```
+
+```{r}
+#for (k in 7:10){
+  #val=c(val,critbic(k))
+#}
+```
+
+```{r}
+#val=c(val,critbic(11))
+#plot(val,type="l",)
+```
+
+
+```{r}
+#valeurbic <- val
+```
+```{r}
+
+#write.table(valeurbic, file = "VALEUR BICoff", append = FALSE, quote = TRUE, sep = ";")
+```
+
+```{r}
+plot(valeurbic,type="l")
+```
+
+il semblerai que le k correspondant est 10 donc nous allons executer notre algorithme avec un k de 10
+l'execution est egalement lente ici 
+
+```{r}
+A <- EM(Y,10)
+```
+```{r}
+write.table(A$mu, file = "Vecteur moyenne", append = FALSE, quote = TRUE, sep = ";")
+write.table(A$proportions, file = "Vecteur proportions", append = FALSE, quote = TRUE, sep = ";")
+```
+#traitement sur les colonnes , meme procedure mais avec la transpose de Y
+```{r}
+Y1 <- t(Y)
+E.EM(Y1,init.EM(Y1,3))
+```
+```{r}
+logvraisXk <- function(k){
+  x <- Y1
+  n <- nrow(x)
+  p <- ncol(x)
+  param <- EM(x,k)
+  K <- nrow(param$mu)
+  mu <- param$mu
+  pi <- param$proportions
+  b=0
+  for(i in 1:n){
+    c=0
+    for(d in 1:K){
+      a=1
+      for (j in 1:p){
+        a=a*(((mu[d,j])**x[i,j])*((1-mu[d,j])**(1-x[i,j])))
+       
+      }
+      c=c+pi[d]*a
+    }
+    b=b+log(c)
+      
+  }
+  return(b)
+}
+```
+
+
+```{r}
+n <- nrow(Y1)
+p <- ncol(Y1)
+critbic <- function(k){
+  a <- logvraisXk(k)-(log(n)*((k*(p+1)-1)/2))
+  
+  return(-a)#on prend -a parce que la fonction optim minimise donc s on minine -a  ca veut dire quon maximise a 
+}
+critbic(2)
+```
