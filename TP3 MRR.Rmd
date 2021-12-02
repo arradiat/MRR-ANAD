@@ -1,0 +1,258 @@
+---
+title: "TP3 MRR"
+author: "Mame Diarra Toure"
+date: "10/21/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(corrplot)
+tab<-read.table(file="/Users/princessemame/Downloads/SAheart.txt",sep=",",header=TRUE)
+pairs(tab,pch=22,bg=c("red","blue")[unclass(factor(tab[,"chd"]))])
+#scatterplot(tab["tobacco"],tab["chd"])
+```
+We see in the graph that the joint distribuiton of the target chd with the other covariabes is placed on two horizontal lines, corresponding to the two possible values of the chd 
+
+We see in ythis plot that there is no an evient conclusion indeed there is no variables that enables tto clearly diffenretiate the sick from the healthy people
+###Logistic Regression
+```{r}
+res=glm(tab$chd~.,data=tab[,2:10],family = binomial)
+summary(res)
+```
+the use of the family binomial means that the theoretical distribution of reference should not be normal but binomial distribution since the target variables only takes two values.
+#b)
+the first thing we see is the call, what model we ran, what options we specified, and so on.
+Next, we see the deviance residuals, which are a measure of model fit. This part of the output shows the distribution of the deviance residuals for individual cases used in the model.
+the value of the estimte variables are really close to 0  except for the intercept and the famhistpresent coefficient.
+We also see that only tobacco, ldl,famhistpresent, typea, age and intercept that have a pvalue smaller than 0.05. surprinsingly the alcohl consumption does not have the pvalue. Those are maybe the significant coefficients for the model. 
+The next part of the summary results shows the coefficients, their standard errors, the z- statistic, and the associated p-values. This is the essential part of the model as it defines the equation.
+Below the table of coefficients are fit indices, including the null and deviance residuals and the Akaike Information Criterion (AIC). Null deviance indicates the response predicted by a model with nothing but an intercept. The lower the value, the better the model. 
+Finally, the number of Fisher scoring iterations is returned. Fisher's scoring algorithm is a derivative of Newton's method for solving maximum likelihood problems, numerically
+
+##decision Map threshold=0.5
+
+```{r}
+Yp <- predict.glm(res,newdata = tab[,2:10],type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+```
+
+```{r}
+Yp1 <- predict.glm(res,newdata = tab[,2:10],type="link")
+decisionY1 <- c()
+decisionY1 <- as.numeric(1*(Yp>=0.5))
+```
+
+```{r}
+max(abs(log(Yp/(1-Yp))-Yp1))
+```
+
+```{r}
+OR <- exp(res$coefficient)
+OR
+
+```
+
+On compare la difference avec 1 de OR si c'est tres petit par raport a 1 alors c'est significatif negativement sin cest tres grand par rapport a 1 c'est signifcatif positivement si c'est proche de 1 ca n'a pas vriment d'influence.
+#ask for the limit
+Si les variables zont correle quand tu augmentes de 1 ca joue dans les autres donc les utre variables ne sont pas fixes 
+###B Performance of the classification model
+```{r}
+Yp <- predict.glm(res,newdata = tab[,2:10],type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+table(decisionY,tab$chd)
+
+```
+```{r}
+ACC=(256+83)/462 #global performance
+globerror <- (46+77)/462
+fnr <- 77/(77+46)
+fpr <- 46/(77+46)
+```
+###Kfolds
+```{r}
+#res=glm(tab$chd~.,data=tab[,2:11],family = binomial)
+tab1 <- tab[,2:11]
+n=nrow(tab1)
+k=10
+kfold=floor(n/k)
+thresh=0.5
+lE=NULL
+for (i in 1:k){
+  indtest <- ((1+(k-1)*kfold)):(k*kfold)
+  y <- tab1[-indtest,"chd"]
+  modglmk=glm(y~.,data=tab1[-indtest,],family = binomial)
+  probaky=predict.glm(modglmk,newdata = tab1[indtest,])
+  decky <- (probaky>=thresh)
+  Ek <- mean(decky!=tab1[indtest,"chd"])
+  lE <- c(lE,Ek)
+}
+
+```
+
+###C Model Selection
+```{r}
+resall=glm(tab$chd~.,data=tab[,2:11],family = binomial)
+res0=glm(tab$chd~1,data=tab[,2:11],family = binomial)
+resfor <- step(res0,list(upper=resall,direction='forward'))
+```
+###regression logistique backward
+```{r}
+resback <- step(res0,direction = "backward")
+print(resback)
+```
+
+###regression logistique avec step
+```{r}
+resstep <- step(res0,direction = "both")
+#print(resstep)
+formula(resstep)
+```
+##Logistic regression with l1 or l2 penalization
+#l2ridge 
+la fonction cv.glmnet fait le cross validation 10 fois et utilise le one standars error rule par defaut 
+```{r}
+library(glmnet)
+# Find the best lambda using cross-validation
+X <- model.matrix(tab1$chd~.,tab1)
+Y <- as.matrix(tab1$chd)
+cv.ridge <- cv.glmnet(X, Y, alpha = 0, family = "binomial")
+# Fit the final model on data
+ridge.min <- glmnet(X, Y, alpha= 0, family = "binomial",lambda = cv.ridge$lambda.min)
+ridge.1se <- glmnet(X, Y, alpha= 0, family = "binomial",lambda = cv.ridge$lambda.1se)
+# Display regression coefficients
+plot.cv.glmnet(cv.ridge)
+coef(cv.ridge, s = "lambda.min")
+coef(cv.ridge, s = "lambda.1se")
+```
+##l1 penalization
+
+
+```{r}
+library(glmnet)
+# Find the best lambda using cross-validation
+X <- model.matrix(tab1$chd~.,tab1)
+Y <- as.matrix(tab1$chd)
+cv.lasso <- cv.glmnet(X, Y, alpha = 1, family = "binomial")
+# Fit the final model on data
+lasso.min <- glmnet(X, Y, alpha= 1, family = "binomial",lambda = cv.lasso$lambda.min)
+lasso.1se <- glmnet(X, Y, alpha= 1, family = "binomial",lambda = cv.lasso$lambda.1se)
+# Display regression coefficients
+plot.cv.glmnet(cv.lasso)
+coef(cv.lasso, s = "lambda.min")
+coef(cv.lasso, s = "lambda.1se")
+```
+#Kfold procedure 
+```{r}
+library(purrr)
+library(modelr)
+```
+Kfold ridge
+```{r}
+#Randomly shuffle the data
+tab1<-tab1[sample(nrow(tab1)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab1)),breaks=10,labels=FALSE)
+accuracy_ridge <- c()
+#Perform 10 fold cross validation
+for(i in 1:10){
+#Segement your data by fold using the which() function 
+testIndexes <- which(folds==i,arr.ind=TRUE)
+testData <- tab1[testIndexes, ]
+trainData <- tab1[-testIndexes, ]
+X <- model.matrix(trainData$chd~.,trainData)
+Y <- as.matrix(trainData$chd)
+modreg1<- cv.glmnet(X, Y, alpha = 0, family = "binomial")
+best_lambda=modreg1$lambda.min
+  best_ridge=glmnet(X, Y, alpha= 0, family = "binomial",lambda = best_lambda)
+  X1 <-  model.matrix(testData$chd~.,testData)
+  Yp <- predict.glmnet(best_ridge,s=best_lambda,newx = X1,type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,testData$chd)
+accuracy_ridge[i] <- (a[1,1]+a[2,2])/sum(a)
+
+}
+```
+kfold lasso
+```{r}
+#Randomly shuffle the data
+tab1<-tab1[sample(nrow(tab1)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab1)),breaks=10,labels=FALSE)
+accuracy_lasso <- c()
+#Perform 10 fold cross validation
+for(i in 1:10){
+#Segement your data by fold using the which() function 
+testIndexes <- which(folds==i,arr.ind=TRUE)
+testData <- tab1[testIndexes, ]
+trainData <- tab1[-testIndexes, ]
+X <- model.matrix(trainData$chd~.,trainData)
+Y <- as.matrix(trainData$chd)
+modreg1<- cv.glmnet(X, Y, alpha = 1, family = "binomial")
+best_lambda=modreg1$lambda.min
+  best_lasso=glmnet(X, Y, alpha= 1, family = "binomial",lambda = best_lambda)
+  X1 <-  model.matrix(testData$chd~.,testData)
+  Yp <- predict.glmnet(best_lasso,s=best_lambda,newx = X1,type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,testData$chd)
+accuracy_lasso[i] <- (a[1,1]+a[2,2])/sum(a)
+}
+```
+K-fold full
+```{r}
+accuracy_full <- c()
+#Randomly shuffle the data
+tab1<-tab1[sample(nrow(tab1)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab1)),breaks=10,labels=FALSE)
+#Perform 10 fold cross validation
+for(i in 1:10){
+#Segement your data by fold using the which() function 
+testIndexes <- which(folds==i,arr.ind=TRUE)
+testData <- tab1[testIndexes, ]
+trainData <- tab1[-testIndexes, ]
+res=glm(trainData$chd~.,data=trainData[,1:10],family = binomial)
+Yp <- predict.glm(res,newdata = testData[,1:10],type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,testData$chd)
+
+accuracy_full[i] <- (a[1,1]+a[2,2])/sum(a)
+}
+```
+kfold constant model
+```{r}
+accuracy_cst <- c()
+#Randomly shuffle the data
+tab1<-tab1[sample(nrow(tab1)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab1)),breaks=10,labels=FALSE)
+#Perform 10 fold cross validation
+for(i in 1:10){
+#Segement your data by fold using the which() function 
+testIndexes <- which(folds==i,arr.ind=TRUE)
+testData <- tab1[testIndexes, ]
+trainData <- tab1[-testIndexes, ]
+res=glm(trainData$chd~1,data=trainData,family = binomial)
+Yp <- predict.glm(res,newdata = testData[,1:10],type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,testData$chd)
+accuracy_cst[i] <- (a[1,1])/sum(a)#pas bon il n'y a[2,2]
+}
+```
+
+```{r}
+group=c("full","lasso","ridge","constant")
+boxplot(accuracy_full,accuracy_lasso,accuracy_ridge,accuracy_cst,names=group,notch=F, outlier.color = "red", outlier.shape = 8, outlier.size = 4, col=(c("gold","darkgreen","purple","red")))
+grid()
+```
+j'arrive pas a faire le kfold du  stepwise et du null 
+
+

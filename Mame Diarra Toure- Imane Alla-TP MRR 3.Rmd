@@ -1,0 +1,337 @@
+---
+title: "TP MRR 3 2019"
+author: "Mame Diarra Toure-Imane Alla"
+date: "10/30/2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+geometry: margin=1.2cm
+fontsize: 6pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+\color{magenta}\section{I.Study of the UScrime dataset}
+\color{black}
+As data Scientists we are asked to study the ability of regular linear models, lasso or ridge to explain the binary indicator called medCrimebin which define a low or high crime rate given other explanatory variables 
+\color{red}\subsection{1.Preliminary work}
+\color{black}
+First of all we start with uploading the data and adding the column corresponding to the medCrimebin data.
+
+```{r,include=FALSE,out.height='20%'}
+library(corrplot) 
+library(MASS)
+data("UScrime")
+medCrimebin <- as.numeric(UScrime$y>median(UScrime$y))
+tab <- cbind(UScrime[,1:15],medCrimebin)
+```
+
+\tiny
+```{r,out.height='20%'}
+corrplot(cor(tab), method="circle")
+```
+\normalsize
+when we plot the correlation matrix of the explanatoy variables we see that a lot of them ar highly correlated to each other leading us to think that we should proceed to a variable selection/ penalization in order to obtain a good model .
+\color{red}\subsection{1.Regular logistic regression }
+\color{black}
+We start with a model containing all the explanatory variables (even if they are correlated to each other).
+We use the glm function  with the family binomial which means that the theoretical distribution of reference should not be a normal distribution but a binomial distribution since the target variables(medCrimebin) only takes two values.
+\tiny
+```{r,echo=FALSE,out.height='20%'}
+res=glm(tab$medCrimebin~.,data=tab[,1:15],family = binomial)
+summary(res)
+```
+\normalsize
+The first thing we see is the call, what model we ran, what options we specified, and so on.
+Next, we see the deviance residuals, which are a measure of model fit. This part of the output shows the distribution of the deviance residuals for individual cases used in the model.
+The value of the estimate variables are really close to 0  except for the intercept, the prob and So coefficients.
+The next part of the summary results shows the coefficients, their standard errors, the z- statistic, and the associated p-values. This is the essential part of the model as it defines the equation.
+Below the table of coefficients are fit indices, including the null and deviance residuals and the Akaike Information Criterion (AIC). Null deviance indicates the response predicted by a model with nothing but an intercept. The lower the value, the better the model. 
+Finally, the number of Fisher scoring iterations is returned. Fisher's scoring algorithm is a derivative of Newton's method for solving maximum likelihood problems, numerically.
+\color{red}\subsection{2. Odd ratios }
+\color{black}
+We compute the odd rations of the coefficient to see their significativity.
+If the OR is really inferior to 1 it means that the coeffcient is significative negatively, in the opposite if it is really greater than 1 the coeffient is significant positively and if it is close to 1 then the coeffcient does not have an influence on the target. 
+\tiny
+```{r,echo=FALSE,out.height='20%'}
+OR <- exp(res$coefficient)
+OR
+```
+\normalsize 
+We see that the variables GDP, M.F, LF, Time, U1 have an Or close to 1. \color{red}However since the co-variables are highly correlated, we can't really trust these values because an increase of one covariable affect the other covariables that are correlated to it. \color{black}
+\color{red}\subsection{3.Predicted values of the model and performance }
+\color{black}
+Now that we have the general linear model we are going to compute the predicted values of our target using a threshold $S=0.5$ and then study the performance of the model.
+```{r,echo=FALSE,out.height='20%'}
+Yp <- predict.glm(res,newdata = tab[,1:15],type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+confusion_matrix <- table(decisionY,tab$medCrimebin)
+confusion_matrix
+```
+We computed the confusion matrix which enable us to determine the accuracy and the global error  of our model.
+From the analysis of the confusion matrix, we can see that the logistic regression model has been able to properly classify 40 cases out of 47 available.
+```{r,echo=FALSE,out.height='20%'}
+ACC <- (confusion_matrix[1,1]+confusion_matrix[2,2])/sum(confusion_matrix) #global performance
+globerror<- (confusion_matrix[2,1]+confusion_matrix[1,2])/sum(confusion_matrix)
+
+print(paste("the accuracy of the model is ",ACC))
+print(paste("the global error of the model is ",globerror))
+```
+According to these values our model is pretty accurate. However the global error is not that small.
+\color{red}\subsection{4.Penalized logistic regression }
+\color{black}
+In this section we are interested in regularized methods using l1 or l2 penalization in order to constraint the variance of our estimators and eventually our prediction error.
+\color{red}\subsection{5. L2 Penalization: ridge regression }
+\color{black}
+We use the cv.glmnet function to determine by cross-validation the best lambda for our penalization.
+The cv.glmnet function compute the K-fold 10 times by default.After finding the best lambda we use the glmnet function to fit our model.
+```{r,include=FALSE,out.height='20%'}
+library(glmnet)
+```
+\tiny
+```{r,echo=FALSE,out.height='20%'}
+# Find the best lambda using cross-validation
+X <- model.matrix(tab$medCrimebin~.,tab)
+Y <- as.matrix(tab$medCrimebin)
+cv.ridge <- cv.glmnet(X, Y, alpha = 0, family = "binomial")
+# Fit the final model on data
+ridge.min <- glmnet(X, Y, alpha= 0, family = "binomial",lambda = cv.ridge$lambda.min)
+# Display regression coefficients
+plot.cv.glmnet(cv.ridge)
+coef(cv.ridge, s = "lambda.min")
+
+```
+\normalsize
+\color{red}\subsection{6.ridge regression: predictive values and performance  }
+\color{black}
+Using the function predict.glmnet we determine the predicted values of our model( with a threshold of 0.5),then we compute the confusion matrix and determine the accuracy and the global performance of our model.
+```{r,echo=FALSE,out.height='20%'}
+Yp <- predict.glmnet(ridge.min,s=cv.ridge$lambda.min,newx = X,type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,tab$medCrimebin)
+ACC <- (a[1,1]+a[2,2])/sum(a) #global performance
+globerror<- (a[2,1]+a[1,2])/sum(a)
+
+print(paste("the accuracy of the model is ",ACC))
+print(paste("the global error of the model is ",globerror))
+```
+We see that the ridge regression's accuracy is smaller than the "full" model and its global error is bigger.
+Let's see if we are more lucky with the lasso regression
+\color{red}\subsection{7.L1 penalization: Lasso  regression }
+\color{black}
+We use the cv.glmnet function to determine by cross-validation the best lambda for our penalization.
+The cv.glmnet function compute the K-fold 10 times by default.After finding the best lambda we use the glmnet function to fit our model.
+```{r,include=FALSE,out.height='20%'}
+library(glmnet)
+# Find the best lambda using cross-validation
+X <- model.matrix(tab$medCrimebin~.,tab)
+Y <- as.matrix(tab$medCrimebin)
+cv.lasso <- cv.glmnet(X, Y, alpha = 1, family = "binomial")
+# Fit the final model on data
+lasso.min <- glmnet(X, Y, alpha= 1, family = "binomial",lambda = cv.lasso$lambda.min)
+# Display regression coefficients
+#plot.cv.glmnet(cv.lasso)
+coef(cv.lasso, s = "lambda.min")
+```
+In opposition to the Ridge regression which doesn't perform variable selection, the Lasso regression proceeded to a variable selection and kept only  two explanatory variables:the intercept and Po2.
+\color{red}\subsection{6.lasso regression: predictive values and performance  }
+\color{black}
+Using the function predict.glmnet we determine the predicted values of our model( with a threshold of 0.5),then we compute the confusion matrix and determine the accuracy and the global performance of our model.
+```{r,echo=FALSE,out.height='20%'}
+Yp <- predict.glmnet(lasso.min,s=cv.lasso$lambda.min,newx = X,type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a_lasso <- table(decisionY,tab$medCrimebin)
+ACC <- (a_lasso[1,1]+a_lasso[2,2])/sum(a_lasso) #global performance
+globerror<- (a_lasso[2,1]+a_lasso[1,2])/sum(a_lasso)
+
+print(paste("the accuracy of the model is ",ACC))
+print(paste("the global error of the model is ",globerror))
+
+```
+We see that the lasso regression's accuracy is smaller than the ridge  model and its global error is bigger .
+In order to determine properly which model is the best to explain our data, we are going to do a k-fold procedure.
+\color{magenta}\section{Cross Validation in order to choose the best model from a predictive point of view}
+\color{black}
+Cross-validation is the process of assessing how the results of a statistical analysis will generalize to an independent data set. If the model has been estimated over some, but not all, of the available data, then the model using the estimated parameters can be used to predict the held-back data. If, for example, the out-of-sample mean squared error, also known as the mean squared prediction error, is substantially higher than the in-sample mean square error, this is a sign of deficiency in the model.
+For each model,we split randomly the initial dataset in k folds. The k-1 folds are used to train our model (train dataset) and  the remaining observations(The 'Test' data set).We use the training data set to estimate the parameters of the model and compute the accuracy of the model.Given the previous model,we use the test data set to compute the accuraccy to evaluate the performances of the model.We compare the results obtained for each model with help of boxplots. Here the best model is the model with the highest accuracy.
+```{r,echo=FALSE,error=TRUE,out.height='20%'}
+#Randomly shuffle the data
+tab<-tab[sample(nrow(tab)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab)),breaks=5,labels=FALSE)
+accuracy_ridge <- c()
+#Perform 10 fold cross validation
+for(i in 1:5){
+#Segement your data by fold using the which() function 
+testIndexes <- which(folds==i,arr.ind=TRUE)
+testData <- tab[testIndexes, ]
+trainData <- tab[-testIndexes, ]
+X <- model.matrix(trainData$medCrimebin~.,trainData)
+Y <- as.matrix(trainData$medCrimebin)
+modreg1<- cv.glmnet(X, Y, alpha = 0, family = "binomial")
+best_lambda=modreg1$lambda.min
+  best_ridge=glmnet(X, Y, alpha= 0, family = "binomial",lambda = best_lambda)
+  X1 <-  model.matrix(testData$medCrimebin~.,testData)
+  Yp <- predict.glmnet(best_ridge,s=best_lambda,newx = X1,type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,testData$medCrimebin)
+accuracy_ridge[i] <- (a[1,1]+a[2,2])/sum(a)
+
+}
+
+```
+
+```{r,include=FALSE,error=TRUE,out.height='20%'}
+set.seed(124193)
+#Randomly shuffle the data
+tab<-tab[sample(nrow(tab)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab)),breaks=5,labels=FALSE)
+accuracy_lasso <- c()
+#Perform 10 fold cross validation
+for(i in 1:5){
+#Segement your data by fold using the which() function 
+  testIndexes <- which(folds==i,arr.ind=TRUE)
+  testData <- tab[testIndexes, ]
+  trainData <- tab[-testIndexes, ]
+  X <- model.matrix(trainData$medCrimebin~.,trainData)
+  Y <- as.matrix(trainData$medCrimebin)
+  modreg1<- cv.glmnet(X, Y, alpha = 1, family = "binomial")
+  best_lambda=modreg1$lambda.min
+  best_lasso=glmnet(X, Y, alpha= 1, family = "binomial",lambda = best_lambda)
+  X1 <-  model.matrix(testData$medCrimebin~.,testData)
+  Yp <- predict.glmnet(best_lasso,s=best_lambda,newx = X1,type="response")
+  decisionY <- c()
+  decisionY <- as.numeric(1*(Yp>=0.5))
+  a <- table(decisionY,testData$medCrimebin)
+  accuracy_lasso[i] <- (a[1,1]+a[2,2])/sum(a)
+}
+
+
+```
+
+```{r,include=FALSE,error=TRUE,out.height='20%'}
+accuracy_full <- c()
+#Randomly shuffle the data
+tab<-tab[sample(nrow(tab)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab)),breaks=5,labels=FALSE)
+#Perform 10 fold cross validation
+for(i in 1:5){
+#Segement your data by fold using the which() function 
+testIndexes <- which(folds==i,arr.ind=TRUE)
+testData <- tab[testIndexes, ]
+trainData <- tab[-testIndexes, ]
+res=glm(trainData$medCrimebin~.,data=trainData[,1:10],family = binomial)
+Yp <- predict.glm(res,newdata = testData[,1:10],type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,testData$medCrimebin)
+
+accuracy_full[i] <- (a[1,1]+a[2,2])/sum(a)
+}
+```
+
+```{r,echo=FALSE,error=TRUE,out.height='20%'}
+group=c("full","lasso","ridge")
+boxplot(accuracy_full,accuracy_lasso,accuracy_ridge,names=group,notch=F, outlier.color = "red", outlier.shape = 8, outlier.size = 4, col=(c("gold","darkgreen","purple")))
+grid()
+```
+\color{red}According to the boxplot the best model here is the logistic ridge regression since it gives the highest accuracy.
+
+\color{black}
+We do the same thing again, but this time we compute the global error of the model. Here the best model is the model with the lowest global error.
+```{r,include=FALSE,error=TRUE,out.height='20%'}
+tab<-tab[sample(nrow(tab)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab)),breaks=5,labels=FALSE)
+global_ridge <- c()
+#Perform 10 fold cross validation
+for(i in 1:5){
+#Segement your data by fold using the which() function 
+testIndexes <- which(folds==i,arr.ind=TRUE)
+testData <- tab[testIndexes, ]
+trainData <- tab[-testIndexes, ]
+X <- model.matrix(trainData$medCrimebin~.,trainData)
+Y <- as.matrix(trainData$medCrimebin)
+modreg1<- cv.glmnet(X, Y, alpha = 0, family = "binomial")
+best_lambda=modreg1$lambda.min
+  best_ridge=glmnet(X, Y, alpha= 0, family = "binomial",lambda = best_lambda)
+  X1 <-  model.matrix(testData$medCrimebin~.,testData)
+  Yp <- predict.glmnet(best_ridge,s=best_lambda,newx = X1,type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,testData$medCrimebin)
+global_ridge[i] <- (a[1,2]+a[2,1])/sum(a)
+
+}
+```
+
+```{r,include=FALSE,error=TRUE,out.height='20%'}
+set.seed(124193)
+#Randomly shuffle the data
+tab<-tab[sample(nrow(tab)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab)),breaks=5,labels=FALSE)
+global_lasso <- c()
+#Perform 10 fold cross validation
+for(i in 1:5){
+#Segement your data by fold using the which() function 
+  testIndexes <- which(folds==i,arr.ind=TRUE)
+  testData <- tab[testIndexes, ]
+  trainData <- tab[-testIndexes, ]
+  X <- model.matrix(trainData$medCrimebin~.,trainData)
+  Y <- as.matrix(trainData$medCrimebin)
+  modreg1<- cv.glmnet(X, Y, alpha = 1, family = "binomial")
+  best_lambda=modreg1$lambda.min
+  best_lasso=glmnet(X, Y, alpha= 1, family = "binomial",lambda = best_lambda)
+  X1 <-  model.matrix(testData$medCrimebin~.,testData)
+  Yp <- predict.glmnet(best_lasso,s=best_lambda,newx = X1,type="response")
+  decisionY <- c()
+  decisionY <- as.numeric(1*(Yp>=0.5))
+  a <- table(decisionY,testData$medCrimebin)
+  global_lasso[i] <- (a[1,2]+a[2,1])/sum(a)
+}
+
+
+```
+
+```{r,include=FALSE,error=TRUE,out.height='20%'}
+global_full <- c()
+#Randomly shuffle the data
+tab<-tab[sample(nrow(tab)),]
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(tab)),breaks=5,labels=FALSE)
+#Perform 10 fold cross validation
+for(i in 1:5){
+#Segement your data by fold using the which() function 
+testIndexes <- which(folds==i,arr.ind=TRUE)
+testData <- tab[testIndexes, ]
+trainData <- tab[-testIndexes, ]
+res=glm(trainData$medCrimebin~.,data=trainData[,1:10],family = binomial)
+Yp <- predict.glm(res,newdata = testData[,1:10],type="response")
+decisionY <- c()
+decisionY <- as.numeric(1*(Yp>=0.5))
+a <- table(decisionY,testData$medCrimebin)
+
+global_full[i] <- (a[1,1]+a[2,2])/sum(a)
+}
+```
+
+```{r,echo=FALSE,error=TRUE,out.height='20%'}
+group=c("full","lasso","ridge")
+boxplot(global_full,global_lasso,global_ridge,names=group,notch=F, outlier.color = "red", outlier.shape = 8, outlier.size = 4, col=(c("gold","darkgreen","purple")))
+grid()
+```
+\color{red} According to these boxplots the best model here is the logistic ridge regression since it gives the lowest global error.
+
+
+
+
+

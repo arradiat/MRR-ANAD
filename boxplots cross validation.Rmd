@@ -1,0 +1,199 @@
+---
+title: "Untitled"
+author: 'Mame Diarra Toure-imane ALLA: binome 20'
+date: "12/11/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r,include=FALSE}
+RMSE_ridge=c()
+residu_ridge=matrix(nrow =957, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.75 * nrow(data1))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(data1)),size = smp_size) 
+  
+  TabTrain =data1[train_ind,] 
+  TabTest=data1[-train_ind,]
+  
+  modreg1=cv.glmnet(as.matrix(TabTrain[,c(1:1,3:20)]),TabTrain[,2],alpha=0,nlambda=100,lambda.min.ratio=0.0001)
+  
+  best_lambda=modreg1$lambda.min
+  
+  best_ridge=glmnet(as.matrix(TabTrain[,c(1:1,3:20)]),TabTrain$CO..ppm.,lambda=best_lambda)
+  
+  pred=predict(best_ridge, s = best_lambda, newx= as.matrix(TabTest[,c(1:1,3:20)]))
+  Y_predicted=data.frame(pred)
+  Y_reel=TabTest$CO..ppm.
+  residu_ridge[,i]=Y_reel-t(Y_predicted)
+  RMSE_ridge[i]=sqrt(((sum(residu_ridge[,i])**2))/length(TabTest))
+}
+```
+
+```{r,include=FALSE}
+RMSE1=c()
+RMSE_stepwise=c()
+residu_stepwise=matrix(nrow =957, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.75 * nrow(data1))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(data1)),size = smp_size) 
+  TabTrain =data1[train_ind,] 
+  TabTest=data1[-train_ind,]
+  modreg1=lm(TabTrain$CO..ppm.~ R10..MOhm. + Heater.voltage..V. + Time..s. + 
+    Flow.rate..mL.min. + Humidity...r.h.. + R1..MOhm. + R11..MOhm. + 
+    R13..MOhm. + R12..MOhm. + R7..MOhm. + R8..MOhm. ,data=TabTrain)
+  Y_test=predict(modreg1,newdata=TabTest[,c(1:1,3:20)],interval="confidence")
+  Y_predicted=data.frame(Y_test)$fit
+  Y_reel=TabTest$CO..ppm.
+  residu_stepwise[,i]=Y_reel-Y_predicted
+  RMSE_stepwise[i]=sqrt(((sum(residu_stepwise[,i])**2))/length(TabTest))
+}
+```
+
+
+```{r}
+RMSE1=c()
+RMSE_knn=c()
+residu_knn=matrix(nrow =957, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.75 * nrow(data1))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(data1)),size = smp_size) 
+  TabTrain =data1[train_ind,] 
+  TabTest=data1[-train_ind,]
+ knene2 <- FNN::knn.reg(TabTrain[,c(1:1,3:20)],TabTest[,c(1:1,3:20)], y=TabTrain$CO..ppm.,k=25, algorithm=c("kd_tree"))
+Y_hat <- knene2$pred
+  Y_reel=TabTest$CO..ppm.
+  residu_knn[,i]=Y_reel-Y_hat
+  RMSE_knn[i]=sqrt(((sum(residu_knn[,i])**2))/length(TabTest))
+}
+```
+
+
+
+
+
+
+
+
+```{r,,include=FALSE}
+RMSE_gl=c()
+residu_gl=matrix(nrow =957, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.75 * nrow(data1))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(data1)),size = smp_size) 
+  
+  TabTrain =data1[train_ind,] 
+  TabTest=data1[-train_ind,]
+  group1=c(1,2,3,4,5,6,6,6,6,6,6,6,7,7,7,7,7,7,7)
+  X_gl=as.matrix(data1[,c(1,3:20)])
+  Y_gl=as.matrix(data1$CO..ppm.)
+  GroupLasso <- gglasso(X_gl,Y_gl,group1,nlambda = 150,)
+  cvGroupLasso <-  cv.gglasso(X_gl,Y_gl,group1)
+  best.lambda <-cvGroupLasso$lambda.min
+  A <- coef.gglasso(GroupLasso,s=best.lambda)
+  A1 <- t(t(as.vector(A)))
+  Xtest <- as.matrix(TabTest[,c(1,3:20)])
+  X <- as.matrix(cbind(rep(1,length(nrow(TabTest))),Xtest))
+  Y_predicted <- X%*%A1
+  Y_reel=TabTest$CO..ppm.
+  residu_gl[,i]=Y_reel-t(Y_predicted)
+  RMSE_gl[i]=sqrt(((sum(residu_ridge[,i])**2))/length(TabTest))
+}
+```
+```{r,include=FALSE}
+RMSE2=c()
+RMSE_bkwrd=c()
+residu_bkwrd=matrix(nrow =957, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.75 * nrow(data1))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(data1)),size = smp_size) 
+  TabTrain =data1[train_ind,] 
+  TabTest=data1[-train_ind,]
+  modreg1=lm(TabTrain$CO..ppm.~ Time..s. + Humidity...r.h.. + Flow.rate..mL.min. + 
+    Heater.voltage..V. + R1..MOhm. + R7..MOhm. + R10..MOhm. + 
+    R11..MOhm. + R12..MOhm. + R13..MOhm. ,data=TabTrain)
+  Y_test=predict(modreg1,newdata=TabTest[,c(1:1,3:20)],interval="confidence")
+  Y_predicted=data.frame(Y_test)$fit
+  Y_reel=TabTest$CO..ppm.
+  residu_bkwrd[,i]=Y_reel-Y_predicted
+  RMSE_bkwrd[i]=sqrt(((sum(residu_bkwrd[,i])**2))/length(TabTest))
+}
+```
+```{r,include=FALSE}
+RMSE_forward=c()
+residu_forward=matrix(nrow =957, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.75 * nrow(data1))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(data1)),size = smp_size) 
+  TabTrain =data1[train_ind,] 
+  TabTest=data1[-train_ind,]
+  
+  modreg1=lm(TabTrain$CO..ppm.~ R10..MOhm. + Heater.voltage..V. + R4..MOhm. + Time..s. + Flow.rate..mL.min. + Humidity...r.h.. + R1..MOhm. +R11..MOhm. + R13..MOhm. + R12..MOhm. + R7..MOhm. + R8..MOhm.,data=TabTrain)
+  
+  Y_test=predict(modreg1,newdata=TabTest[,c(1,3:20)],interval="confidence")
+  Y_predicted=data.frame(Y_test)$fit
+  Y_reel=TabTest$CO..ppm.
+  residu_forward[,i]=Y_reel-Y_predicted
+  RMSE_forward[i]=sqrt(((sum(residu_forward[,i])**2))/length(TabTest))
+}
+```
+```{r,include=FALSE}
+RMSE_lasso=c()
+residu_lasso=matrix(nrow =957, ncol=20)
+for (i in 1:20){
+  lambdaseq <- seq(0,50,0.01)
+  smp_size = floor(0.75 * nrow(data1))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(data1)),size = smp_size) 
+  TabTrain =data1[train_ind,] 
+  TabTest=data1[-train_ind,]
+  modreg1=cv.glmnet(as.matrix(TabTrain[,c(1,3:20)]), TabTrain$CO..ppm., alpha=1, lambda=lambdaseq)
+  best_lam <- modreg1$lambda.min
+  lasso_best <- glmnet(as.matrix(TabTrain[,c(1,3:20)]), TabTrain$CO..ppm., alpha = 1, lambda = best_lam)
+  Y_test<- predict(lasso_best, s = best_lam, newx = as.matrix(TabTest[,c(1,3:20)]))
+  Y_predicted=data.frame(Y_test)
+  Y_reel=TabTest$CO..ppm.
+  residu_lasso[,i]=(Y_reel)-t(Y_predicted)
+  RMSE_lasso[i]=sqrt(((sum(residu_lasso[,i])**2))/length(TabTest))
+}
+```
+```{r,include=FALSE}
+RMSE_EN=c()
+residu_EN=matrix(nrow =957, ncol=20)
+for (i in 1:20){
+  lambdaseq <- seq(0,50,0.01)
+  smp_size = floor(0.75 * nrow(data2))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(data1)),size = smp_size) 
+  TabTrain =data1[train_ind,] 
+  TabTest=data1[-train_ind,]
+  modreg1=cv.glmnet(as.matrix(TabTrain[,c(1,3:20)]), TabTrain$CO..ppm.,alpha=0.5,nlambda=100,lambda.min.ratio=0.0001)
+  best_lam <- modreg1$lambda.min
+  EN_best <- glmnet(as.matrix(TabTrain[,c(1,3:20)]), TabTrain$CO..ppm.,alpha=0.5,  lambda = best_lam)
+  Y_test<- predict(EN_best, s = best_lam, newx = as.matrix(TabTest[,c(1,3:20)]))
+  Y_predicted=data.frame(Y_test)
+  Y_reel=TabTest$CO..ppm.
+  residu_EN[,i]=(Y_reel)-t(Y_predicted)
+  RMSE_EN[i]=sqrt(((sum(residu_EN[,i])**2))/length(TabTest))
+}
+```
+\tiny
+```{r}
+1
+```
+```{r,include=FALSE,out.height='15%',fig.show='hold',out.width= "65%"}
+group=c("forward","stepwise","Lasso","Ridge","ElasticNet","GLasso","KNN")
+```
+\vspace{-2em}
+```{r,echo=FALSE,out.width= "65%"}
+boxplot(RMSE_forward,RMSE_stepwise,RMSE_lasso,RMSE_ridge,RMSE_EN,RMSE_gl,RMSE_knn,names=group,notch=F, outlier.color = "red", outlier.shape = 8, outlier.size = 4, col=(c("gold","darkgreen","purple","pink","blue","red","deeppink")))
+grid()
+```

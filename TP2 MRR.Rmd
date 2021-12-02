@@ -1,0 +1,356 @@
+---
+title: "Tp2 MRR"
+author: "Mame Diarra Toure-Imane Alla"
+date: "9/30/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Test of significativity 
+```{r}
+n=100
+X=cbind(((1:n)/n)**3,((1:n)/n)**4)
+Y=X%*%c(1,1)+rnorm(n)/4;
+res=summary(lm(Y~X))
+```
+
+
+```{r}
+res
+print(res$coefficients[2,4])
+```
+```{r}
+reg1=lm(Y~X[,1])
+reg2=lm(Y~X[,2])
+summary(reg1)
+
+```
+```{r}
+summary(reg2)
+```
+When we look at the multiple regression model it semms like the beta2 coeficient is not important to our model. However when  we compute the result computed independantly using two simple models shows that both coefficients can be meaningful to the model ( clearly the two co variable are correlated )
+```{r}
+cor(X[,1],X[,2])
+```
+as we see it the two covariables are strongly correlated thats why when they are both in the model the result is no good 
+
+## model seletion in a linear regression
+
+```{r}
+dim(UScrime)
+plot(UScrime)
+corrplot(cor(UScrime), method="circle")
+```
+there are 47 observation on 16 variables 
+the scatterplot of the table doesnt give us any information there are too many covariables make it impossible to read
+  
+##Multiple regression model
+```{r}
+crimereg=lm(y~.,data=UScrime)
+summary(crimereg)
+```
+We notice that only 5 of the covariables have a p-value smaller than 0.05. Hence for those ones the null hypothesis is not rejected, those are the coefficients that are likely to be meaningful to our model.
+we notice also that The value of the residuals are quite important leading us to doubt this model.
+
+##b)
+We think that this linear model doesnt globally  have an interest and that fro two reasons: First of all we see on the correlation matrix that the target is not correlated to all the covariable so making a model with all of them is clearly not the best choice 
+secondly we also see on the correaltion matrix that some of the covaribales are strongly correlated meaning thta they shouldnt be in the same model.
+##c)
+We can say that not all the variable are significant to the model 
+Indeed,Starting with the p-values, typically, we use the coefficient's p-values to determine which terms to keep in the regression model. 
+The p-value for each term tests the null hypothesis that the coefficient is equal to zero. A low p-value (< 0.05 or <0.01 according to the confident levels) indicates that you can reject the null hypothesis. In other words, a predictor that has a low p-value is likely to be a meaningful addition to your model.
+int he output above only five covraibale have p values lower that 0.05 we can thus assmume that they are the significant one 
+d)?
+```{r}
+library(qpcR)
+RSS(crimereg)
+```
+###model selection 
+
+
+```{r}
+regbackward<-step(crimereg,direction = "backward")
+summary(regbackward)
+```
+
+there are 8 variables  that are selected 
+first they removed So then time, lf, nw, po2, pop, gdp 
+The value of AIC decreased at each step! 
+Le critère d'information d'Akaike s'écrit comme suit:
+AIC=2k−2lna(L)
+{\mathit  {AIC}}=2k-2\ln(L)
+où k est le nombre de paramètres à estimer du modèle et L est le maximum de la fonction de vraisemblance du modèle.
+Backward Elimination
+This is the simplest of all variable selection procedures and can be easily implemented without special software. In situations where there is a complex hierarchy, backward elimination can be run manually while taking account of what variables are eligible for removal.
+1. Start with all the predictors in the model
+2. Remove the predictor with highest p-value greater than αcrit 3. Refit the model and goto 2
+4. Stop when all p-values are less than αcrit .
+The αcrit is sometimes called the “p-to-remove” and does not have to be 5%. If prediction performance is the goal, then a 15-20% cut-off may work best, although methods designed more directly for optimal prediction should be preferred.
+10.2.1 Forward Selection
+This just reverses the backward method.
+1. Start with no variables in the model.
+2. For all predictors not in the model, check their p-value if they are added to the model. Choose the one with lowest p-value less than αcrit .
+3. Continue until no new predictors can be added.
+􏰄􏰄􏰄􏰄􏰄􏰅 􏰅
+􏰇 􏰆􏰄􏰄􏰄􏰄􏰃􏰄􏰅
+10.2. STEPWISEPROCEDURES 126 10.2.2 Stepwise Regression
+This is a combination of backward elimination and forward selection. This addresses the situation where variables are added or removed early in the process and we want to change our mind about them later. At each stage a variable may be added or removed and there are several variations on exactly how this is done.
+Stepwise procedures are relatively cheap computationally but they do have some drawbacks.
+1. Because of the “one-at-a-time” nature of adding/dropping variables, it’s possible to miss the “optimal” model.
+2. The p-values used should not be treated too literally. There is so much multiple testing occurring that the validity is dubious. The removal of less significant predictors tends to increase the significance of the remaining predictors. This effect leads one to overstate the importance of the remaining predictors.
+3. The procedures are not directly linked to final objectives of prediction or explanation and so may not really help solve the problem of interest. With any variable selection method, it is important to keep in mind that model selection cannot be divorced from the underlying purpose of the investigation. Variable selection tends to amplify the statistical significance of the variables that stay in the model. Variables that are dropped can still be correlated with the response. It would be wrong to say these variables are unrelated to the response, it’s just that they provide no additional explanatory effect beyond those variables already included in the model.
+4. Stepwise variable selection tends to pick models that are smaller than desirable for prediction pur- poses. To give a simple example, consider the simple regression with just one predictor variable. Suppose that the slope for this predictor is not quite statistically significant. We might not have enough evidence to say that it is related to y but it still might be better to use it for predictive purposes.
+```{r}
+regforward=step(lm(UScrime$y~1,data=UScrime),list(upper=crimereg),direction = 'forward')
+```
+M.F and U1 are selected with forward but nt with bacKward  
+```{r}
+lm1<-lm(y~Po1 + Ineq + Ed + M + Prob + U2,data = UScrime)
+AIC(lm1)
+```
+```{r}
+regboth<-step(crimereg,direction = 'both')
+```
+The stepwise models gives the same result than the backwards model 
+
+d)
+```{r}
+reg0<-(lm(formula(regforward),data=UScrime))
+summary(reg0)
+```
+
+### RIDGE AND LASSO ILLUSTARIONS 
+Least angle regression (LARS) and its most important modification, least absolute shrinkage and selection operator (LASSO), are variants of linear regression that select the most important variables, one by one, and fit the coefficients dynamically.
+```{r}
+rm(list=ls())
+```
+
+
+```{r}
+n=10000
+p=5
+X=matrix(rnorm(n*p), nrow = n,ncol=p)
+X=scale(X)*sqrt(n/(n-1))
+beta=matrix(10*rev(1:p),nrow=p,ncol=1)
+epsi=rnorm(n,(1/(n**2)))
+Y=X%*%beta + epsi
+Z=cbind(Y,data.frame(X))
+Z=data.frame(Z)
+```
+with ridge you want to optimize ols with a constraint on the coefficients
+when yu're using OLS with constrainst on the coefficinet its very important to deal with variable which have no units you have to scale those variables 
+```{r}
+summary(lm(Y~X))
+```
+```{r}
+(1/n)*t(X)%*%Y
+summary(lm(Y~X))$coefficient 
+```
+We notice that the execution of (1/n)*t(X)%*%Y gives approximately the same result than the regression ( with lm )
+
+```{r}
+modlasso<-lars(X,Y,type="lasso")
+attributes(modlasso)
+#modlasso$meanx
+#modlasso$normx
+```
+## Partie de l'algorithme de la fonction Lars pour comprendre la signification de meanx et normx 
+ lars <-
+function(x, y, type = c("lasso", "lar", "forward.stagewise","stepwise"), trace = FALSE,
+           normalize=TRUE, intercept=TRUE, Gram, 
+           eps = .Machine$double.eps,  max.steps, use.Gram = TRUE)
+{
+### program automatically centers and standardizes predictors by default.
+###
+### Original program by Brad Efron September 2001
+### Recoded by Trevor Hastie November 2001
+### Computational efficiency December 22, 2001
+### Bug fixes and singularities February 2003
+### Conversion to R April 2003
+### stepwise and non-standardize options added May 2007
+### Copyright Brad Efron and Trevor Hastie
+  call <- match.call()
+  type <- match.arg(type)
+  TYPE <- switch(type,
+                 lasso = "LASSO",
+                 lar = "LAR",
+                 forward.stagewise = "Forward Stagewise",
+                 stepwise = "Forward Stepwise")
+  if(trace)
+    cat(paste(TYPE, "sequence\n"))
+ nm <- dim(x)
+  n <- nm[1]
+  m <- nm[2]
+  im <- inactive <- seq(m)
+  one <- rep(1, n)
+  vn <- dimnames(x)[[2]]	
+### Center x and y, and scale x, and save the means and sds
+  if(intercept){
+    meanx <- drop(one %*% x)/n
+    x <- scale(x, meanx, FALSE)	# centers x
+    mu <- mean(y)
+    y <- drop(y - mu)
+  }
+  else {
+    meanx <- rep(0,m)
+    mu <- 0
+    y <- drop(y)
+  }
+  if(normalize){
+    normx <- sqrt(drop(one %*% (x^2)))
+    nosignal<-normx/sqrt(n) < eps
+    if(any(nosignal))# ignore variables with too small a variance
+      {
+        ignores<-im[nosignal]
+        inactive<-im[-ignores]
+        normx[nosignal]<-eps*sqrt(n)
+        if(trace)
+          cat("LARS Step 0 :\t", sum(nosignal), "Variables with Variance < eps; dropped for good\n")	#
+      }
+    else ignores <- NULL #singularities; augmented later as well
+    names(normx) <- NULL
+    x <- scale(x, FALSE, normx)	# scales x
+  }
+  else {
+    normx <- rep(1,m)
+    ignores <- NULL
+  }
+```{r}
+modlasso$meanx
+```
+modlasso$meanx contains the following values (one%*%X)/n  where one represent a vector on 1 of length n
+it is used for centering X 
+```{r}
+modlasso$normx
+```
+modlasso$normx contains sqrt((one %*% (X^2))) it is for scaling X the normx vectors is used in the lars function a the scale value 
+The value of scale determines how column scaling is performed (after centering). If scale is a numeric vector with length equal to the number of columns of x, then each column of x is divided by the corresponding value from scale.
+
+
+#####Create a multi-paneled plotting window. The par(mfrow) function is handy for creating a simple multi-paneled plot,  mfrow is  A vector of length 2, where the first argument specifies the number of rows and the second the number of columns of plots. donc si tu as deux plot et que tu veux quil soit aligne tu mets mfrow=c(1,2) si tu veux quil soit sur une colonne tu mets (c(2,1))
+```{r}
+par(mfrow=c(1,2))
+plot(modlasso)
+plot(c(modlasso$lambda,0),pch=16,type='b',col="blue")
+grid()
+```
+ 2
+
+In regression, you're looking to find the $\beta$
+ that minimizes:
+ $(Y-\sum\beta_iX_i)^2$
+ LASSO applies a penalty term to the minimization problem:
+  $(Y-\sum\beta_iX_i)^2+\alpha\sum abs(\beta_i)$So when $\alpha$
+ is zero, there is no penalization, and you have the OLS solution - this is max $abs(\beta)$
+ (or since I didn't write it as a vector, max $\sum abs(\beta_i)).$
+As the penalization $\alpha$ increases, $\sum abs(\beta_i)$
+is pulled towards zero, with the less important parameters being pulled to zero earlier. At some level of $\alpha$, all the $\beta_i$ have been pulled to zero.
+This is the x-axis on the graph. Instead of presenting it as high  $\alpha$
+ on the left decreasing to zero when moving right, it presents it as the ratio of the sum of the absolute current estimate over the sum of the absolute OLS estimates. The vertical bars indicate when a variable has been pulled to zero (and appear to be labeled with the number of variables remaining)
+
+For the y-axis being standardized coefficients, generally when running LASSO, you standardize your X variables so that the penalization occurs equally over the variables. If they were measured on different scales, the penalization would be uneven (for example, consider multiplying all the values of one explanatory variable by 0.01 - then the coefficient of the OLS estimate would be 100x the size, and would be pulled harder when running LASSO).
+c(modlasso\$lambda,0) c'est un vecteur avec les differentte valeur du parametre $\alpha$ au fur et a mesure de la regression auquel on a ajoute la valeur 0 .
+##c)
+Aucune idée du fonctionnement de predict.lars et de ce qu'on doit en attendre 
+```{r}
+print(coef(modlasso))
+coef=predict.lars(modlasso,X,type="coefficients",mode="lambda",s=2500)
+coeflasso=coef$coefficients
+par(mfrow=(c(1,1)))
+barplot(coeflasso,main='lasso l=1',col='cyan')
+```
+
+##application
+In the file usa_indicators_info.txt there are the name of the different variables and their meaning.
+
+In the file usa_indicators.txt there are Multiple numeric values .
+```{r}
+usaIndic<-read.table(file="/Users/princessemame/Downloads/Tp2 mrr/TP2/usa_indicators.txt",sep=";",header=TRUE)
+```
+
+there are 14 observation for 110  co-variables 
+we can compute a multiple linear regression however it ont be meaning since the number of variables are way greater than the  number of variable 
+so a multiple linear rgressin is not meaningful in this case 
+The variable used for co2 emission is EN.ATM.CO2E.KT		
+```{r}
+plot(usaIndic$Year,usaIndic$EN.ATM.CO2E.KT,pch=16,type='b',col="blue")
+```
+with ridge you want to optimize ols with a constraint on the coefficients
+when you're using OLS with constrainst on the coefficinet its very important to deal with variable which have no units you have to scale those variables 
+```{r}
+tabscale= as.data.frame(scale(usaIndic,center=FALSE))
+```
+
+```{r}
+lm(tabscale$EN.ATM.CO2E.KT~., data=tabscale)
+```
+We see that for a lor co variable the coefficent obtained are NAs so as we said it in the beginning a multiple linear rgression cant be efficient in this case
+
+##Ridge regression with l2 penalized
+Ridge regression is a way to create a parsimonious model when the number of predictor variables in a set exceeds the number of observations, or when a data set has multicollinearity (correlations between predictor variables).
+
+```{r}
+tab=tabscale[,2:110]
+ridgereg <- lm.ridge(tab$EN.ATM.CO2E.KT~.,data=tab,lambda=c(0,100))
+coef(ridgereg)
+ridgereg$coef[,1]
+```
+
+The difference between coef(ridgereg) and ridgereg$coef is that the first one is the transpose of second one 
+```{r}
+bigfive0 <-ridgereg$coef[rev(order(ridgereg$coef[,1])),]
+bigfive100 <- ridgereg$coef[rev(order(ridgereg$coef[,2])),]
+bigfive0[1:5,]
+bigfive100[1:5,]
+par(mfrow=c(1,2))
+plot(bigfive100[1:5,])
+plot(bigfive0[1:5,])
+```
+```{r}
+resridge <- lm.ridge(tab$EN.ATM.CO2E.KT~.,data=tab,lambda=seq(0,10,0.010))
+plot(resridge$GCV)
+plot(resridge)
+```
+How to ppick a model from this ?
+```{r}
+a <- t(coef(resridge))
+Yridge=as.matrix(tab)%*%a
+mse <- mean((Yridge-tab$EN.ATM.CO2E.KT)**2)
+```
+##lasso regression with l1 penalization
+devons nous nelevr le target de l'input ? pas sure
+```{r}
+tab1 <- tab[,c(1:20,22:109)]
+```
+
+```{r}
+reslasso <- lars(tab1, tab$EN.ATM.CO2E.KT, type="lasso")
+```
+
+
+the model that maxlize the likelihood function 
+wze choose the lowets aic 
+
+## dont scale qualitative or binry variable NEVER NEVER SCALE QUALITATIVE OR BINARY VARIABLES
+
+
+
+##the value of beta hat depends on the unit of each input variables  it means if i want to model the revenue  using the price of shit i will not get the same beta i will not getthe same beta if the price is in dollar or in euros ?,
+#if you penalize your hero by adding a constraint on the coefficient if youre coeffcient depends on your unts you are going to penalized the coefficient differently thats why before performing a regression with any kind of penalization we want to have a model WITH NOT UNITS a way to cancel the unit is to vithdraw the average  and to divide by(Xj-Xj bar )/Sxj
+
+we can also make a transformation to have all the variable 
+
+# ridge
+par exemple si on 3 vriable $coff will give you only two value  in a normalized world (because there is no intercept) 
+coef( ridge object ) ate te coefficient in the iitial world 
+
+gcv means for the ridge regression 
+
+
+
+
+
+

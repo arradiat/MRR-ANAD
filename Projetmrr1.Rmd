@@ -1,0 +1,82 @@
+---
+title: "Untitled"
+author: "Mame Diarra Toure-Imane ALLA"
+date: "11/25/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r,include=FALSE}
+library(plyr)
+library(readr)
+```
+
+```{r}
+myfiles = list.files(path="/Users/princessemame/filecsv", pattern="*.csv", full.names=TRUE)
+dat_csv = ldply(myfiles, read_csv)
+```
+
+
+```{r}
+data_train10000 <-dat_csv[sample(nrow(dat_csv),size=5000),]
+```
+
+
+
+```{r}
+modreg_CO<- lm(data_train10000$`CO (ppm)`~.,data=data_train10000)
+X=as.matrix(cbind(rep(1,length(nrow(data_train10000))),data_train10000[,c(2:20)]))
+beta=t(t(modreg_CO$coefficients))
+Y_hat=X%*%beta
+plot(Y_hat,data_train10000$`CO (ppm)`)
+abline(0,1,col="red")
+grid()
+modreg_CO
+```
+```{r}
+modreg <-lm(data_train10000$`CO(ppm)`~.,data=data_train10000[,c(5,6,7,8,9,11,12,13,14,15,16,17,18)])
+regbackward <- step(modreg_CO,direction = "backward",k=log(5000))
+```
+```{r}
+beta <- t(t(regbackward$coefficients))
+length(beta)
+X=as.matrix(data_train10000[,c(4,5,6,7,8,10,12,14,15,16,17,18)])
+dim(X)
+Y_hat=X%*%beta
+boxplot(abs(Y_hat-data_train10000$`CO (ppm)`))
+#abline(0,1,col="red")
+grid()
+plot(Y_hat,data_train10000$`CO (ppm)`)
+abline(0,1,col="red")
+abs(sum((data_train10000$`CO (ppm)`-Y_hat)**2))
+```
+###Ridge_regression
+```{r}
+library(glmnet)
+```
+
+```{r}
+X_ridge=as.matrix(data_train10000[,2:19])
+Y_ridge=as.matrix(data_train10000$`CO (ppm)`)
+RidgeMod <- glmnet(X_ridge, Y_ridge,alpha=0, nlambda=100,lambda.min.ratio=0.0001)
+```
+```{r}
+plot(RidgeMod,xvar="lambda",label=TRUE)
+
+```
+```{r}
+CvRidgeMod=cv.glmnet(X_ridge,Y_ridge,alpha=0,nlambda=100,lambda.min.ratio=0.0001)
+best.lambda_ridge=CvRidgeMod$lambda.min 
+best.lambda_ridge
+predict(RidgeMod, s=best.lambda_ridge, type="coefficients")
+```
+```{r}
+data_train10000 <-dat_csv[sample(nrow(dat_csv),size=5000),2:20]
+```
+
+
+
+

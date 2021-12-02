@@ -1,0 +1,252 @@
+---
+title: "Tp MRR 2"
+author: "Mame Diarra Toure"
+date: "10/14/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+\color{magenta}\section{I.Study of the UScrime dataset}
+\color{black}
+As data Scientists we are asked to study the ability of regular linear models, lasso or ridge to predict the US crime rate dataset.
+\color{red}\subsection{1.Preliminary work}
+\color{black}
+First of all we start with uploading the data and computing the correlation matrix to have a first sight on our dataset.
+
+```{r,include=FALSE}
+library(corrplot)
+library(MASS)
+```
+\tiny
+```{r,echo=FALSE}
+data(UScrime)
+corrplot(cor(UScrime), method="circle")
+```
+The correlation plot shows us that our target variable is not correlated to all the covariables, hence a linear model containing all the 15 covariable may not be the best choice here.
+We also notice that some of the co-variables are strongly correlated to each other (Po1 and GDP for exemple),thus they shouldn't be both on the model. 
+So we are going to do  variable selection(forward,backward,stepwise) and then study the penalized regressions model (Lasso and ridge) and then decide which of those models are the best from a predictive point of view. 
+
+\color{magenta}\section{Selection variables}
+\color{red}\subsection{forward selection}
+\color{black}
+Forward selection is a type of stepwise regression which begins with an empty model and adds in variables one by one. In each forward step, you add the one variable that gives the single best improvement to your model.
+In the R package the step function uses the AIC criterion for weighing the choices, which takes proper account of the number of parameters fit; at each step an add or drop will be performed that minimizes the AIC score.
+\tiny
+```{r,include=FALSE}
+library(glmnet)
+```
+```{r,echo=FALSE}
+crimereg=lm(y~.,data=UScrime)
+regforward=step(lm(UScrime$y~1,data=UScrime),list(upper=crimereg),direction = 'forward')
+```
+\footnotesize
+The forward selection add successively Po1 , Ineq , Ed , M , Prob , U2
+\color{red}\subsection{Backward selection}
+\color{black}
+Backward selection is a type of stepwise regression which begins  with the full least squares model containing all p predictors, and then iteratively removes the least useful predictor, one-at-a-time.
+In the R package the step function uses the AIC criterion for weighing the choices, which takes proper account of the number of parameters fit; at each step a drop will be performed that minimizes the AIC score.
+```{r,echo=FALSE}
+regbackward<-step(crimereg,direction = "backward")
+```
+There are 8 variables  that are selected. The backward selection drops successively So, time, lf, nw, po2, pop, gdp
+\color{red}\subsection{Stepwise selection}
+\color{black}
+Stepwise regression is a combination of the forward and backward selection techniques. It is a modification of the forward selection so that after each step in which a variable was added, all candidate variables in the model are checked to see if their significance has been reduced below the specified tolerance level. If a nonsignificant variable is found, it is removed from the model.
+
+```{r,echo=FALSE}
+regboth<-step(crimereg,direction = 'both')
+
+```
+\color{magenta}\section{Penalized regression models }
+By retaining a subset of the predictors and discarding the rest, subset selection produces a model that is interpretable and has possibly lower prediction error than the full model. However, because it is a discrete process, variables are either retained or discarded. It often exhibits high variance, and so doesn't reduce the prediction error of the full model. Shrinkage methods are more continuous, and don't suffer as much from high variability.
+\color{red}\subsection{Lasso regression}
+\color{black}
+Lasso regression find a parsimonious model which performs L1 regularization. The L1 regularization adds a penality equivalent to the absolute of the maginitude of regression coefficients and tries to minimize them 
+Lasso translates each coefficient by a constant factor $\lambda$, truncating at zero. This is called "soft thresholding".
+```{r,echo=FALSE}
+library(glmnet)
+X<- as.matrix(UScrime[ ,1:15])
+Y <-as.matrix(UScrime$y)
+LassoMod <- glmnet(X, Y, alpha=1, nlambda=100,lambda.min.ratio=0.0001)
+```
+Let us now see how the coefficient values change according to the lambda value. To do that, we will use the plot.glmnet()nction that produces a coefficient profile plot of the coefficient paths for a fitted glmnet obeject
+```{r,echo=FALSE}
+ plot(LassoMod,xvar="norm",label=TRUE)
+```
+In the previous figure, each curve corresponds to a variable. This plot shows the path of its coefficient against the L1-norm of the whole coefficient vector when $\lambda$ varying. The previous axis indicates the number of nonzero coefficients at the current $\lambda$. which is the effective degrees of freedom for the Lasso.
+
+The glmnetfunction returns a sequence of models implied by lambda fitted by coordinate descent; our goal is to select the best. 
+In this regard, we can use the cv.glmnet.This function does k-fold cross-validation for glmnet, produces a plot, and returns a value for the best lambda value.The function runs glmnet nfolds+1 times; the first to get the lambda sequence, and then the remainder to compute the fit with each of the folds omitted. The error is accumulated, and the average error and standard deviation over the folds is computed. THats how we obtain the best $\lambda$ according to the dataset.
+
+Once we have the best lambda, we can use the coef() function  to obtain the coefficients.
+
+```{r,echo=FALSE}
+set.seed(2)
+   CvLassoMod <- cv.glmnet(X, Y, alpha=1, nlambda=100,lambda.min.ratio=0.0001)
+best.lambda <- CvLassoMod$lambda.min
+best.lambda 
+coef(CvLassoMod, s = "lambda.min")
+```
+We see that some of the variable have been dropped. The Lasso regression penalty term, using the absolute value (rather than the square, as in the regression Ridge), forces some coefficients to be exactly equal to zero, if $\lambda$ is large enough. In practice, Lasso automatically performs a real selection of variables.
+\color{red}\subsection{Ridge regression}
+\color{black}
+Ridge regression is a parsimonious model which performs L2 regularization. The L2 regularization adds a penality equivalent to the square of the maginitude of regression coefficients and tries to minimize them.
+Ridge regression does a proportional shrinkage and handles collinear variables.
+```{r,echo=FALSE}
+
+X_ridge=as.matrix(UScrime[ ,1:15])
+Y_ridge=as.matrix(UScrime$y)
+RidgeMod <- glmnet(X_ridge, Y_ridge,alpha=0, nlambda=100,lambda.min.ratio=0.0001) 
+```
+Let us now see how the coefficient values change according to the $\lambda$ value. To do that, we will use the plot.glmnet()function that produces a coefficient profile plot of the coefficient paths for a RidgeMod model.
+```{r,echo=FALSE}
+plot(RidgeMod,xvar="lambda",label=TRUE)
+```
+When $\lambda$ is very large (the log of $\lambda$ is 12), the regularization effect dominates the squared loss function and the coefficients tend to zero. At the beginning of the path, as $\lambda$ tends toward zero and the solution tends towards the Ordinary Least Square (OLS), coefficients are unregularized.It is necessary then to tune lambda in such a way that a balance is maintained between both.
+The Ridge regression draws a whole model path; our goal is to select the best. In this regard, we can use the cv.glmnet() function available in the glmnet package. This function does k-fold cross-validation for glmnet, produces a plot, and returns a value for the best lambda value:
+```{r,echo=FALSE}
+CvRidgeMod=cv.glmnet(X_ridge,Y_ridge,alpha=0,nlambda=100,lambda.min.ratio=0.0001)       
+```
+The function runs glmnet nfolds+1 times; the first to get the lambda sequence, and then the remainder to compute the fit with each of the folds omitted. The error is accumulated, and the average error and standard deviation over the folds is computed. Now we will plot the cross-validation curve produced by plot.cv.glmnet().
+```{r,echo=FALSE}
+plot(CvRidgeMod)
+```
+The previous figure includes the cross-validation curve (red dotted line) and upper and lower standard deviation curves along the k sequence (error bars). In the beginning of the procedure (to the right of the figure), the MSE is very high, and the coefficients are restricted to be too small; and then at some point, it kind of levels off. This seems to indicate that the full model is doing a good job.
+There are two vertical lines that are at two lambda values:one is at the value of $\lambda$ that gives the minimum mean cross-validated error.The second  gives the most regularized model such that the error is within one standard error of the minimum .
+Once we have the best lambda, we can use predict to obtain coefficients
+```{r,echo=FALSE}
+best.lambda_ridge=CvRidgeMod$lambda.min 
+best.lambda_ridge
+predict(RidgeMod, s=best.lambda_ridge, type="coefficients")
+```
+Ultimately, we can say that both Lasso and Ridge balance the trade-off bias-variance with the choice of k. Lasso implicitly assumes that part of the coefficients are zero, or at least not significant. Lasso tends to have a higher performance than Ridge in cases where many predictors are not actually tied to the response variables. In opposite cases, the Ridge tends to have better performance. Both approaches can be compared by cross-validation.
+\color{magenta}\section{Cross Validation in order to choose the best model from a predictive point of view}
+\color{black}
+Cross-validation is the process of assessing how the results of a statistical analysis will generalize to an independent data set. If the model has been estimated over some, but not all, of the available data, then the model using the estimated parameters can be used to predict the held-back data. If, for example, the out-of-sample mean squared error, also known as the mean squared prediction error, is substantially higher than the in-sample mean square error, this is a sign of deficiency in the model.
+
+For each model,we split randomly the initial dataset in two dataframes containing $75\%$ of the observations(The 'Training' data base) and $25\%$ of the remaining observations(The 'Test' data set).We use the training sata set to estimate the parameters of the model and compute the RMSE of these data.Given the previous model,we use the test data set to compute the RMSE to evaluate the performances of the model.By repeating the two first steps 20 times ,we compare the results obtained with the help of 5 boxplots.
+```{r, echo=FALSE}
+uscrime_data<-UScrime
+RMSE1=c()
+RMSE_ridge=c()
+n=20  #nombre de fois ou tu train/test 
+residu_ridge=matrix(nrow =12, ncol=n)
+for (i in 1:n){
+  smp_size = floor(0.75 * nrow(UScrime))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(UScrime)),size = smp_size) 
+  
+  TabTrain =uscrime_data[train_ind,] 
+  TabTest=uscrime_data[-train_ind,]
+  
+  modreg1=cv.glmnet(as.matrix(TabTrain[,1:15]),TabTrain[,16],alpha=0,nlambda=100,lambda.min.ratio=0.0001)
+  
+  best_lambda=modreg1$lambda.min
+  
+  best_ridge=glmnet(as.matrix(TabTrain[,1:15]),TabTrain$y,lambda=best_lambda)
+  
+  pred=predict(best_ridge, s = best_lambda, newx= as.matrix(TabTest[,1:15]))
+  Y_predicted=data.frame(pred)
+  Y_reel=TabTest$y
+  residu_ridge[,i]=Y_reel-t(Y_predicted)
+  RMSE_ridge[i]=sqrt(((sum(residu_ridge[,i])**2))/length(TabTest))
+}
+
+RMSE_lasso=c()
+residu_lasso=matrix(nrow =12, ncol=n)
+for (i in 1:n){
+  lambdaseq <- seq(0,50,0.01)
+  smp_size = floor(0.75 * nrow(UScrime))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(UScrime)),size = smp_size) 
+  TabTrain =uscrime_data[train_ind,] 
+  TabTest=uscrime_data[-train_ind,]
+  modreg1=cv.glmnet(as.matrix(TabTrain[,1:15]), TabTrain$y, alpha=1, lambda=lambdaseq)
+  best_lam <- modreg1$lambda.min
+  lasso_best <- glmnet(as.matrix(TabTrain[,1:15]), TabTrain$y, alpha = 1, lambda = best_lam)
+  Y_test<- predict(lasso_best, s = best_lam, newx = as.matrix(TabTest[,1:15]))
+  Y_predicted=data.frame(Y_test)
+  Y_reel=TabTest$y
+  residu_lasso[,i]=(Y_reel)-t(Y_predicted)
+  RMSE_lasso[i]=sqrt(((sum(residu_lasso[,i])**2))/length(TabTest))
+}
+
+RMSE_backward=c()
+residu_backward=matrix(nrow =12, ncol=n)
+for (i in 1:n){
+  smp_size = floor(0.75 * nrow(UScrime))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(UScrime)),size = smp_size) 
+  TabTrain =uscrime_data[train_ind,] 
+  TabTest=uscrime_data[-train_ind,]
+  modreg1=lm(TabTrain$y~ M + Ed + Po1 + M.F + U1 + U2 + Ineq + Prob,data=TabTrain)
+  Y_test=predict(modreg1,newdata=TabTest[,1:15],interval="confidence")
+  Y_predicted=data.frame(Y_test)$fit
+  Y_reel=TabTest$y
+  residu_backward[,i]=Y_reel-Y_predicted
+  RMSE_backward[i]=sqrt(((sum(residu_backward[,i])**2))/length(TabTest))
+}
+
+RMSE1=c()
+RMSE_forward=c()
+residu_forward=matrix(nrow =12, ncol=n)
+for (i in 1:n){
+  smp_size = floor(0.75 * nrow(UScrime))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(UScrime)),size = smp_size) 
+  TabTrain =uscrime_data[train_ind,] 
+  TabTest=uscrime_data[-train_ind,]
+  modreg1=lm(TabTrain$y~M+Ed+Ineq+Prob+U2+Po1,data=TabTrain)
+  Y_test=predict(modreg1,newdata=TabTest[,1:15],interval="confidence")
+  Y_predicted=data.frame(Y_test)$fit
+  Y_reel=TabTest$y
+  residu_forward[,i]=Y_reel-Y_predicted
+  RMSE_forward[i]=sqrt(((sum(residu_forward[,i])**2))/length(TabTest))
+}
+
+RMSE1=c()
+RMSE_stepwise=c()
+residu_stepwise=matrix(nrow =12, ncol=n)
+for (i in 1:n){
+  smp_size = floor(0.75 * nrow(UScrime))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(UScrime)),size = smp_size) 
+  TabTrain =uscrime_data[train_ind,] 
+  TabTest=uscrime_data[-train_ind,]
+  modreg1=lm(TabTrain$y~M + Ed + Po1 + M.F + U1 + U2 + Ineq + Prob,data=TabTrain)
+  Y_test=predict(modreg1,newdata=TabTest[,1:15],interval="confidence")
+  Y_predicted=data.frame(Y_test)$fit
+  Y_reel=TabTest$y
+  residu_stepwise[,i]=Y_reel-Y_predicted
+  RMSE_stepwise[i]=sqrt(((sum(residu_stepwise[,i])**2))/length(TabTest))
+}
+
+
+```
+```{r,echo=FALSE}
+R1=rep(1,20)
+R2=rep(2,20)
+R3=rep(3,20)
+R4=rep(4,20)
+R5=rep(5,20)
+R=c(R1,R2,R3,R4,R5)
+R=as.factor(R)
+rmse=c(RMSE_backward,RMSE_forward,RMSE_stepwise,RMSE_lasso,RMSE_ridge)
+tab=cbind(rmse,R)
+tab=data.frame(tab)
+library(ggplot2)
+
+#ggplot(tab,aes(y=rmse,group=R)) +geom_boxplot(notch=F, outlier.color = "red", outlier.shape = 8, outlier.size = 4,fill = "pink", color = "purple",names=group)
+
+```
+
+```{r,echo=FALSE}
+group=c("backward","forward","stepwise","Lasso","Ridge")
+boxplot(RMSE_backward,RMSE_forward,RMSE_stepwise,RMSE_lasso,RMSE_ridge,names=group,notch=F, outlier.color = "red", outlier.shape = 8, outlier.size = 4, col=(c("gold","darkgreen","purple","red","pink")))
+grid()
+```
+
+
+

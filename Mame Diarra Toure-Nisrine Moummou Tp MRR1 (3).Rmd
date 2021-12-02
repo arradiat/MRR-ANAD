@@ -1,0 +1,138 @@
+---
+title: "Mame Diarra Toure-Nisrine Moummou TP1 MRR 2019"
+output:
+  pdf_document: 
+    fig_height: 3
+    fig_width: 3
+  html_document:
+    df_print: paged
+fontsize: 6pt
+geometry: margin=1cm
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\color{magenta}\section{I.Facebook data}
+\color{black}
+As data Scientists we are asked to study the data set "facebookdata.txt" in order to forecast the number of facebook users 2 months after the last months available in the data set.
+\color{red}\subsection{1.Preliminary work}
+\color{black}
+First of all we start with uploading the data and plotting it to see if there is a tendency and then we will compute the correlation matrix.
+
+\tiny
+```{r,echo=FALSE,fig.height=3,fig.width=3,fig.show='hold'}
+ftab<-read.table(file="/home/moummou/facebookdata.txt",sep=";",header=TRUE)
+plot(ftab,pch = 16, col = "purple")
+cor(ftab)
+```
+\normalsize
+\newline
+If we look closer to this plot we see that the number of facebook users grows exponentially in relation  to months.
+Thanks to the function cor we compute the correlation matrix and see that there is a strong correlation between the target: the number of users and the covariables: months
+\color{red}\subsection{2.Regression Model}
+\color{black}
+Since the plot showed that the number of users grows exponentially in relation to months we are going to transform the data in order to have a linear relation between our two variables. To do so we are going to use the function $f(x)=log(x+1)$.
+Indeed, to avoid having $\infty$ on the first row we use log(x+1) instead of log(x)\\
+\tiny
+```{r,echo=FALSE,fig.height=3,fig.width=3,fig.align='left'}
+logftab=ftab
+logftab[,2]=log(ftab[,2]+1)
+plot(log(ftab),type='l',cex.lab=0.75,cex.main=0.75,col="red")
+```
+\normalsize
+We see now that the logarithm of users has a linear relation with the months. We can then use a linear regression model in order to forecast the number of users in the future.
+\color{red}\subsection{3.Linear regression Model}
+\color{black}
+Let $Y$ be our target variable represented here by the log of the number of users
+and $X$ our co variable represented here by the number of months .
+Our linear model is the following $Y=\beta_1+ \beta_2X$
+We are going to use the lm function in order to compute the estimated value for the coefficients $\beta_1$  and $\beta_2$
+\tiny
+```{r,echo=FALSE,fig.height=3,fig.width=3,fig.show='hold',results='hold'}
+fcbkreg<-lm(users~.,data=logftab)
+fcbkreg
+summary(fcbkreg)
+```
+\normalsize
+We obtain $\beta_1=0.6124$ and $\beta_2=0.0856$
+Hence $Y=0.6124+ 0.0856X$
+\color{blue}\subsubsection{3.1 P-values}
+\color{black}
+Starting with the p-values, typically, we use the coefficient's p-values to determine which terms to keep in the regression model. 
+The p-value for each term tests the null hypothesis that the coefficient is equal to zero. A low p-value (< 0.05 or <0.01 according to the confident levels) indicates that you can reject the null hypothesis. In other words, a predictor that has a low p-value is likely to be a meaningful addition to your model.
+In the output below, we can see that the predictor variables of months is significant because both its p-values are really close to  0.000. However,
+the p-value of the intercept is also small but bigger than the p-value of months thus it is less significant to our model. 
+\color{blue}\subsubsection{3.2 R-squared and adjusted R-squared}
+\color{black}
+Geometrically  the R-squared is the cosinus of the angle between the centered  vector and its centered prediction
+In other words it shows how much the estimation is close to the reality.
+The closer it is to 1 the better the superimposition of the two vectors is.
+The adjusted R-squared means the same thing only it is not affected by the number of co-variables.
+Here we have R-squared =0.9707,	Adjusted R-squared =0.9683
+meaning that our model is really close to reality.
+\color{blue}\subsubsection{Plot of $\hat Y$ function of Y}
+\color{black}
+\tiny
+```{r,echo=FALSE,fig.show='hold'}
+Y_hat<-0.61243+0.08562*logftab$mois
+rY<-exp(Y_hat)-1
+res <- ftab$users - rY
+```
+```{r,fig.show='hold'}
+plot(ftab$users,rY)
+abline(0,1,col="red")
+grid()
+plot(ftab$users,res,ylim = c(-20,40))
+```
+\normalsize
+\newline
+As we see it our model gives a good explanation of the data. Indeed the points are really close to the first bissectrice $y=x$ except for the last point which is separated from the others. We can also see that our residuals seem to follow a random distribution. \color{red}
+However we think that the divergence of the last point compromise strongly our future predictions.
+\color{black}
+\color{red}\subsection{4- Forecasting}
+\color{black}
+Now we are going to forecast the number of facebook users in 2 months using the function predict
+\tiny
+```{r,echo=FALSE}
+predict(fcbkreg,newdata = data.frame(mois=c(80)),interval="confidence")
+```
+\normalsize
+We have $log(number of facebook users+1)=7.462004$
+Hence the Number of facebook users in two months is equal to $\exp(7.462004)-1$
+\boxed{Number of facebook users in two months=1739.633}
+However, due to the divergence of the last point of our estimation, we can't be sure about this prediction, adding to that we are pretty suspicious about the fact that the number of users increased by almost 1000 in 2 months 
+\color{magenta}\section{II.UScrime data}
+\color{black}
+As data Scientists we are asked to study the data set "UScrime" which contain 16 variables in order to study from a predictive point of view the ability of a linear model to model the target variable: the crime rate
+\color{red}\subsection{1.Preliminary work}
+\color{black}
+First of all we start with uploading the data and computing the correlation matrix.
+```{r,include=FALSE}
+library(corrplot)
+library(MASS)
+```
+\tiny
+```{r,echo=FALSE}
+data(UScrime)
+corrplot(cor(UScrime), method="circle")
+```
+\normalsize
+\newline
+The correlation plot shows us that our target variable is not correlated to all the covariables, hence a linear model containing all the 15 covariable may not be the best choice here.
+\color{red}\subsection{2.Regression Model}
+\color{black}
+Let's start by assuming that all covariables are important to our linear model and see what we obtain
+\tiny
+```{r,echo=FALSE}
+crimereg=lm(y~.,data=UScrime)
+summary(crimereg)
+```
+\normalsize
+We remark that only 5 of the covariables have a p-value smaller than 0.05. Hence for those ones the null hypothesis is not rejected, those are the coefficients that are likely to be meaningful to our model.\newline
+We also remark that the Adjusted R-squared, which is equal to \color{red} 0.7078 \color{black}, is not close to 1 which means that the predicted values of the targets are greatly different from the values of the real targets.\newline
+Nevertheless, we see that the residuals have an important median of \color{red} 6.69 \color{black} as an absolute value, with a minimum value of \color{red} -395.74 \color{black} and a maximum one of \color{red} 512.67 \color{black}, numbers important enough to confirm just how big is the difference between the predicted and real values of the targets, which only reaffirms what we said above.\newline
+We think that using all the covariables in our model is not good and we should probably do a forward selection for exemple to select the important ones.\newline
+However in order to be sure about that we are going to divide our data set into a training and a testing one and see if we obtain a good prediction or not.
+

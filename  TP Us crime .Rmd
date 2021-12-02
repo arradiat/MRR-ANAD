@@ -1,0 +1,74 @@
+---
+title: "USCRIME"
+author: "Mame Diarra Toure"
+date: "9/25/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+###USCRIME
+```{r}
+data(UScrime)
+plot(UScrime)
+a=lm(y~.,data=UScrime)
+summary(a)
+```
+
+lets chosse only the variables with small pvalues 
+```{r}
+b=lm(y~M+Ed+Ineq+Prob+U2,data=UScrime)
+```
+
+
+```{r}
+summary(b)
+```
+the Rsquared is too small so that's no good 
+
+So im going to do a forward selection in order to find the variables that are meaningful
+##Forward selection
+```{r}
+m0 <- lm(y~1,data=UScrime)
+mf<- lm(y~.,data=UScrime)
+step(m0, scope=list(lower=m0, upper=mf),data=UScrime, direction="forward")
+```
+
+```{r}
+b=lm(y~M+Ed+Ineq+Prob+U2+Po1,data=UScrime)
+summary(b)
+```
+
+okay thats a lot better now lets divide our data into train and tesst data set and see if our model give a good prediction 
+```{r}
+Y_hat=-5040.505+10.502*UScrime$M+19.647*UScrime$Ed+6.765*UScrime$Ineq-3801.836*UScrime$Prob+8.937*UScrime$U2+11.502*UScrime$Po1
+plot(UScrime$y,Y_hat)
+abline(0,1,col="red")
+grid()
+```
+
+
+```{r}
+
+
+uscrime_data<-UScrime
+RMSE1=c()
+RMSE_forward=c()
+residu1=matrix(nrow =12, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.75 * nrow(UScrime))
+  set.seed(10+50*i)
+  train_ind = sample(seq_len(nrow(UScrime)),size = smp_size) 
+  TabTrain =uscrime_data[train_ind,] 
+  TabTest=uscrime_data[-train_ind,]
+  modreg1=lm(uscrime_data$y~M+Ed+Ineq+Prob+U2+Po1,data=uscrime_data)
+  Y_test=predict(modreg1,newdata=TabTest[,1:15],interval="confidence")
+  Y_predicted=data.frame(Y_test)$fit
+  Y_reel=TabTest$y
+  residu1[,i]=Y_reel-Y_predicted
+  RMSE_forward[i]=sqrt(((sum(residu1[,i])**2))/length(TabTest))
+}
+
+```
+

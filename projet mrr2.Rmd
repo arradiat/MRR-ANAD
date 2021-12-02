@@ -1,0 +1,23 @@
+---
+title: "Untitled"
+author: "Mame Diarra Toure_imane"
+date: "12/2/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+data <- data.frame(read.delim(file="/Users/princessemame/data.txt"))
+```
+
+```{r}
+reg1 <- lm(data$CO..ppm.~.,data = data)
+summary(reg1)
+```
+
+```{r}
+regbackward <- lm()
+```
+

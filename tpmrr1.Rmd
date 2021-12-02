@@ -1,0 +1,517 @@
+---
+title: "TP MRR 1"
+author: "TOURE MAME DIARRA- MOUMMOU NISRINE"
+date: "16 septembre 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+tab<-read.table(file="/Users/princessemame/Downloads/Files/TP1/immo.txt",sep=";",header=TRUE)
+
+```
+```{r}
+#head(tab)
+#names(tab)
+#tab[,1]
+#tab$surface
+#tab[,c(1,3)]
+tab$prix
+nrow(tab)
+dim(tab)
+plot(tab)
+cor(tab)
+```
+If r is close to 0, it means there is no relationship between the variables. If r is positive, it means that as one variable gets larger the other gets larger. If r is negative it means that as one gets larger, the other gets smaller (often called an "inverse" correlation).
+here we seee that r is always posotive and close to 1 that means that the parameters are related ( depandant to each other)
+```{r}
+modreg=lm(prix~. ,data=tab)
+#print(modreg)
+#summary((modreg))
+#attributes(modreg)
+#coef(modreg)
+#modreg$res
+
+```
+
+ The t-value measures the size of the difference relative to the variation in your sample data. 
+ Put another way, T is simply the calculated difference represented in units of standard error. The greater the magnitude of T, the greater the evidence against the null hypothesis. This means there is greater evidence that there is a significant difference. The closer T is to 0, the more likely there isn't a significant difference.
+
+le alpha à partir duquel on ne rejettera plus notre hypothése 
+H0 est égale a la p-value.
+###comments
+ the std errors are quite important and according to the t-value the null hupothesis is likely to be rejected
+
+the estimated paramerters are beta 0 = 309.665, beta 1= 2.634 beta2=0.045
+
+and the residuals goes from -55,89  to 64.68
+```{r}
+modreg$res
+modreg$model
+```
+
+modreg$res gives the value of the value of the residual for each row 
+modreg$model give the model frame used 
+
+```{r}
+Y_hat=c()
+Y_hat=309.66566+2.6344*tab$surface+0.04518*tab$valeur
+plot(tab$prix,Y_hat)
+abline(0,1)
+grid()
+```
+
+#
+this kind of rpresentation shows us if the estimated values of the target are  greater or not than the real values of the target 
+the underestimated values are the one below the first bissectrice line  
+The overestimated values are the one ober the first bissectrice line  
+```{r}
+ue<-c()
+ue=(Y_hat<tab$prix)
+plot(modreg$residuals)
+```
+We can conclude that there is more overestimated values than underestimated once however weve notced that the estimated values are close to the real one and there is no aberrant values .
+
+when we plot the residual weve noticed taht its random and does not follow a gaussian distribution as it is supposed to 
+
+The R-square  is equal to $$\frac{var(\hat Y)}{var(Y)}$$ its geometrical interpretation is the cosinus of the angle between the centered  vector and its centered prediction
+```{r}
+mean_Y_hat=mean(Y_hat)
+mean_Y=mean(tab$prix)
+a=0
+b=0
+for (i in 1:20){
+  a=a+(Y_hat[i]-mean_Y_hat)**2
+  b=b+(tab$prix[i]-mean_Y)**2
+}
+R2=a/b
+R2
+```
+The R square is close to 1 meaning that the anglie between the predicted and the real is close to 0 so its a good prediction
+```{r}
+X=as.matrix(cbind(rep(1,20),tab[,c(1,2)]))
+```
+
+```{r}
+A=solve(t(X)%*%X)
+b_hat=A%*%t(X)%*%tab$prix
+```
+### The linear model 
+```{r}
+tab= read.table(file = "/Users/princessemame/Downloads/Files/TP1/Icecreamdata.txt",sep=";",header=TRUE)
+dim(tab)
+
+```
+
+there is 30 observations available
+a) 
+target: $ice cream consumption=Y$ 
+variables: $temp=X_3$, $income=X_1$, $price=X_2$
+$$Y=\beta_0+\beta_1X_1+\beta_2X_2+\beta_3X_3$$
+```{r}
+plot(tab)
+```
+```{r}
+modreg=lm(cons~., data=tab)
+print(modreg)
+```
+```{r}
+Y_hat=c()
+Y_hat=0.197315+0.003308*tab$income-1.044414*tab$price+0.003458*tab$temp
+plot(tab$cons,Y_hat)
+abline(0,1,col="red")
+grid()
+```
+As we see it our model gives a good explanation of the dat indeed the points are not too dispersed around the first bissectix
+lets compute the $R^2$  to see how good our model fits the dta
+```{r}
+mean_Y_hat=mean(Y_hat)
+mean_Y=mean(tab$cons)
+a=0
+b=0
+for (i in 1:30){
+  a=a+(Y_hat[i]-mean_Y_hat)**2
+  b=b+(tab$cons[i]-mean_Y)**2
+} 
+R2=a/b
+R2
+
+```
+
+the  $R^2$ is close to 1 meaning that our model is "good"
+
+b)
+the values of the estimated coefficient are $\beta_0=0.197315 \quad \beta_1=0.003308 \quad  \beta_2= -1.044414 \quad \beta_3= 0.003458 $
+we can say that the value of the estimated parameters are really small
+#what should i comment ?
+we use a bilateral student test in order to find the significativity of the estimated parameters
+```{r}
+summary(modreg)
+```
+##significance code
+The significance codes indicate how certain we can be that the coefficient has an impact on the dependent variable. For example, a significance level of 0.01 indicates that there is less than a 0.1% chance that the coefficient might be equal to 0 and thus be insignificant. Stated differently, we can be 99.9% sure that it is significant. The significance codes (shown by asterisks) are intended for quickly ranking the significance of each variable.
+
+##p value
+#aparté pour meux comprendre
+Pr(>|t|). The P value indicates whether the independent variable has statistically significant predictive capability. It essentially shows the probability of the coefficient being attributed to random variation. The lower the probability, the more significant the impact of the coefficient. For example, there is less than a 1.3% chance that the WRAIN impact is due to random variation. The P value is automatically calculated by R by comparing the t-value against the Student's T distribution table. As a rule, a P value of less than 5% indicates significance. In theory, the P value for the constant could be used to determine whether the constant could be removed from the model.
+
+The lower the p-value, the more surprising the evidence is, the more ridiculous our null hypothesis looks.
+If the p-value is lower than a predetermined significance level (people call it alpha), then we reject the null hypothesis.
+on rejette H0 si la p value est inferieur a $\alpha$ 
+What this means is that in a world where the pizza delivery time is 30 minutes or less (null hypothesis is true), there’s a 3% chance we would see the mean delivery time is at least 10 minutes longer due to random noise.
+The lower the p-value, the more meaningful the result because it is less likely to be caused by noise.
+
+
+"A p-value doesn’t *prove* anything. It’s simply a way to use surprise as a basis for making a reasonable decision.
+— Cassie Kozyrkov"
+p-values are used as a tool to challenge our initial belief (null hypothesis) when the result is statistically significant.
+If the observed p-value is lower than alpha, then we conclude that the result is statistically significant.
+#fin aparte
+#reponse Tp
+Typically, you use the coefficient p-values to determine which terms to keep in the regression model. 
+The p-value for each term tests the null hypothesis that the coefficient is equal to zero (no effect). A low p-value (< 0.05) indicates that you can reject the null hypothesis. In other words, a predictor that has a low p-value is likely to be a meaningful addition to your model because changes in the predictor's value are related to changes in the response variable.
+
+Conversely, a larger (insignificant) p-value suggests that changes in the predictor are not associated with changes in the response.
+
+In the output below, we can see that the predictor variables of income  and temparature are significant because both of their p-values are close to  0.000. However, the p-value for price  (0,22) is greater than the common alpha level of 0.05, which indicates that it is not statistically significant.
+
+We can then conclude that the price does not affect the ice cream comsumption ( if you plot ice cream consumption and icecream price you can see a really weak  if non-existant correlation )
+```{r}
+plot(tab$price, tab$cons)
+```
+
+```{r}
+plot(tab$income, tab$cons,type = 'l')
+```
+
+this is weird the p value for income is lower that 0.05 but when we plot  we dont see any correlation what can we say ?
+
+
+# I think the limit of such approach is that sometime the result of the regression is false 
+for exemple we've seen that the pvalue for income is 0.008 which is lower than 0.05 meaning that income is significant to our model however when we plotted the data we've seen that there is no correlation between incom and ice cream consumption.
+
+## using matrix computation
+
+# finding the value of the coefficient
+```{r}
+X0=rep(1,30)
+X1=tab$income
+X2=tab$price
+X3=tab$temp
+X=cbind(X0,X1,X2,X3)
+Y=tab$cons
+a=t(X)%*%X
+b=solve(a)
+beta_hat=b%*%t(X)%*%Y
+row.names(beta_hat)<-c('intercept','income','price','temp')
+beta_hat
+```
+finding the $\hat \epsilon , \hat \sigma $
+```{r}
+Y_hat=0.197315+0.00330776*X1-1.044*X2+0.00345*X3
+eps=Y-Y_hat
+n=length(eps)
+sig_hat=0
+for (i in 1:n){
+  sig_hat=sig_hat+(1/(n-4))*eps[i]**2
+}
+```
+#the value of the statistics of test 
+$$\frac{\hat \beta_j}{\sqrt{\hat \sigma^2 S_{j,j}}} $$ with $S_{j,j}$ j-th term of the diagnonal of $(X^TX)^{-1}$
+
+```{r}
+t0=beta_hat[1]/(sqrt(sig_hat*b[1,1]))
+t1=beta_hat[2]/(sqrt(sig_hat*b[2,2]))
+t2=beta_hat[3]/(sqrt(sig_hat*b[3,3]))
+t3=beta_hat[4]/(sqrt(sig_hat*b[4,4]))
+
+t0
+t1
+t2
+t3
+#summary(modreg)
+```
+#pvalues
+we reject the null hypothsis if $ \frac{\hat \beta_j}{\sqrt{\hat \sigma^2 S_{j,j}}}>t_{n-p}(1-\alpha/2)$ 
+
+$$t_{n-p}(1-\alpha/2)=F^{-1}(1-\alpha/2)$$ thus
+we reject th null hypothsis if  $$F(\frac{\hat \beta_j}{\sqrt{\hat \sigma^2 S_{j,j}}})>1-\alpha/2$$
+$$\alpha>2(1-F(\frac{\hat \beta_j}{\sqrt{\hat \sigma^2 S_{j,j}}})$$
+hence $p-value= 2(1-F(\frac{\hat \beta_j}{\sqrt{\hat \sigma^2 S_{j,j}}})$
+```{r}
+p0=2*(1-pt(t0,n-4))
+p1=2*(1-pt(t1,n-4))
+p2=2*(1-pt(t2,n-4))
+p3=2*(1-pt(t3,n-4))
+p0
+p1
+p2
+p3
+summary(modreg)
+```
+
+
+```{r}
+confint(modreg,level=0.95)
+confint(modreg,level=0.99)
+confint(modreg,level=0.999)
+summary(modreg)
+```
+We see that for temparature 0 doest not belon to any confident interval for any level we've also seen that temp has a *** significant code meaning that it is really likely that temparture has an effect on ice cream consumption 
+
+in the same way we see that 0 belongs to all the confident intervals for the price that agrees with the significant code we've obtained earlier , price doesn' t have any effect on ice cream cosumption 
+
+for income , 0 doesnt belong to the confident interval  95% and 99% however it belongs to the 99,9 % interval adding to that, the plot the plot of cons by income shows no correlation between those two 
+that leads us to conclude that income has a small if no effect on ice cream consumption
+#c)
+```{r}
+plot(Y,Y_hat)
+abline(0,1)
+```
+THere is not a huge dispersion between our predicted target and the observed one 
+```{r}
+predict(modreg,interval = "confidence")
+```
+#d) residuals
+```{r}
+mse=sum(eps**2)/n
+rmse=sqrt(mse)
+rmse
+#unbiased  estimate of the residuals variance is
+1/(n-4)*sum(eps**2)
+```
+```{r}
+#lines(modreg$residuals)
+plot(Y,modreg$residuals)
+```
+```{r}
+qqnorm(residuals(modreg),ylab="Residuals")
+qqline(residuals(modreg),lty=2)
+```
+
+```{r}
+shapiro.test(eps)
+```
+From the output, the p-value > 0.05 implying that the distribution of the data are not significantly different from normal distribution. In other words, we can assume the normality.
+
+#e) predicted values 
+
+```{r}
+summary(modreg)
+Y_predicted=0.1973151+0.0033078*85-1.044414*0.28+0.0034584*50
+Y_predicted
+```
+
+```{r}
+predict(modreg,newdata = data.frame(income=85,price=0.28,temp=50),interval="confidence")
+```
+```{r}
+
+## 75% of the sample size
+smp_size <- floor(0.75 * nrow(tab))
+
+## set the seed to make your partition reproducible
+set.seed(124)
+train_ind<- sample(seq_len(nrow(tab)), size = smp_size)
+
+tabtrain <- tab[train_ind, ]
+tabtest <- tab[-train_ind, ]
+```
+
+```{r}
+modreg1=lm(cons~., data=tabtrain)
+
+rmse1=sqrt((sum(modreg1$residuals**2))/length(tabtrain))
+rmse1
+ytest=predict(modreg1,newdata=tabtest[,c(2,3,4)],interval='confidence')
+y_predicted=data.frame(ytest)$fit
+y_predicted
+y=tabtest$cons
+eps1=y-y_predicted
+rmse2=sqrt((sum(eps1**2))/length(tabtest))
+rmse2
+```
+```{r}
+rmse1=c()
+rmse2=c()
+for (i in 1:10){
+## 75% of the sample size
+smp_size <- floor(0.75 * nrow(tab))
+
+## set the seed to make your partition reproducible
+set.seed(100+10*i)
+train_ind<- sample(seq_len(nrow(tab)), size = smp_size)
+
+tabtrain <- tab[train_ind, ]
+tabtest <- tab[-train_ind, ]
+modreg1=lm(cons~., data=tabtrain)
+
+rmse1[i]=sqrt((sum(modreg1$residuals**2))/length(tabtrain))
+ytest=predict(modreg1,newdata=tabtest[,c(2,3,4)],interval='confidence')
+y_predicted=data.frame(ytest)$fit
+y_predicted
+y=tabtest$cons
+eps1=y-y_predicted
+rmse2[i]=sqrt((sum(eps1**2))/length(tabtest))
+
+}
+```
+```{r}
+boxplot(rmse1,rmse2)
+```
+#how to conclude and what to conlcude ??
+
+###IIICurse of high dimension
+a)
+```{r}
+tab1=cbind(tab,rnorm(n))
+modreg2=lm(cons~., data=tab1)
+Ep=sqrt((sum(modreg2$residuals**2))/n)
+Ep
+X=cbind(rep(1,n),tab1$income,tab1$price,tab1$temp,tab1$`rnorm(n)`)
+Y_hat=X%*%modreg2$coefficients
+#Y_hat-(0.2583162+0.0033256*tab1$income-1.2891909*tab1$price+0.0035428*tab1$temp+0.0036247*tab1$`rnorm(n)`)
+mean_Y_hat=mean(Y_hat)
+mean_Y=mean(tab1$cons)
+a=0
+b=0
+for (i in 1:n){
+  a=a+(Y_hat[i]-mean_Y_hat)**2
+  b=b+(tab1$cons[i]-mean_Y)**2
+}
+R2=a/b
+R2
+```
+b)
+```{r}
+rmse=c()
+rmse[1]=Ep
+R2=c()
+R2[1]=0.7206304
+for(i in 2:20){
+  tab1=cbind(tab1,rnorm(n))
+  names(tab1)[length(names(tab1))]<-i
+  modreg2=lm(cons~., data=tab1)
+  rmse[i]=sqrt((sum(modreg2$residuals**2))/n)
+  X=tab1
+  X[,1]=rep(1,n)
+  Y_hat=as.matrix(X)%*%as.matrix(t(t(modreg2$coefficients)))
+#Y_hat-(0.2583162+0.0033256*tab1$income-1.2891909*tab1$price+0.0035428*tab1$temp+0.0036247*tab1$`rnorm(n)`)
+  mean_Y_hat=mean(Y_hat)
+  mean_Y=mean(tab1$cons)
+  a=0
+  b=0
+  for (z in 1:n){
+    a=a+(Y_hat[z]-mean_Y_hat)**2
+    b=b+(tab1$cons[z]-mean_Y)**2
+  }
+  R2[i]=a/b
+  
+}
+```
+
+```{r}
+k=1:20
+plot(k,rmse,type='l')
+plot(k,R2,type='l',col="red")
+```
+
+
+R2 agmente avec le nombe de variable comme on l'avait vu en cours et rmse diminue avec le nombe de variable
+
+
+###Application Facebook data set
+
+As data Scientis we are asked to study teh data set "facebookdata.txt" in order to forecast the number of facebook users 2 months after the las months available in the data set
+```{r}
+ftab<-read.table(file="/Users/princessemame/Downloads/Files/TP1/facebookdata.txt",sep=";",header=TRUE)
+dim(ftab)
+plot(ftab,type='l')
+
+```
+When we plot the facebook data set we see that the number of user as a function of months is an exponential.
+In order to perform a linear regression we're going to transform our data set using the logarithm function.
+
+```{r}
+logftab=ftab
+logftab[,2]=log(ftab[,2]+1)
+plot(log(ftab),type='l')
+
+
+```
+let's use the lm function in order to compute a linear regression on our transformed data "logftab"
+
+
+```{r}
+fcbkreg<-lm(users~.,data=logftab)
+summary(fcbkreg)
+```
+We see that the coefficient for months have a *** significant code and a  pvalue=1.44e-10
+Typically, you use the coefficient p-values to determine which terms to keep in the regression model. 
+The p-value for each term tests the null hypothesis that the coefficient is equal to zero (no effect). A low p-value (< 0.05) indicates that you can reject the null hypothesis. In other words, a predictor that has a low p-value is likely to be a meaningful addition to your model because changes in the predictor's value are related to changes in the response variable.
+
+Conversely, a larger (insignificant) p-value suggests that changes in the predictor are not associated with changes in the response.
+
+In the output below, we can see that the predictor variables of months  is significant because -its p-values is close to  0.000. 
+```{r}
+Y_hat<-0.61243+0.08562*logftab$mois
+plot(logftab$users,Y_hat)
+abline(0,1,col="red")
+grid()
+```
+As we see it our model gives a good explanation of the data. Indeed the points are really close to the  the first bissectrix
+lets compute the $R^2$  to see how good our model fits the data
+
+```{r}
+mean_Y_hat=mean(Y_hat)
+mean_Y=mean(logftab$users)
+a=0
+b=0
+for (i in 1:length(Y_hat)){
+  a=a+(Y_hat[i]-mean_Y_hat)**2
+  b=b+(logftab$users[i]-mean_Y)**2
+} 
+R2=a/b
+R2
+
+```
+The Rsquare value is really close to 1 that means that our estimated target is really close to the observed target 
+```{r}
+predict(fcbkreg,newdata = data.frame(mois=80),interval="confidence")
+```
+###USCRIME
+```{r}
+data(UScrime)
+#plot(UScrime)
+#a=lm(y~.,data=UScrime)
+#summary(a)
+```
+
+
+```{r}
+b=lm(y~M+Ed+Ineq+Prob+U2+Po1,data=UScrime)
+```
+
+
+```{r}
+summary(b)
+```
+
+##Forward selection
+```{r}
+m0 <- lm(y~1,data=UScrime)
+mf<- lm(y~.,data=UScrime)
+step(m0, scope=list(lower=m0, upper=mf),data=UScrime, direction="forward")
+```
+
+```{r}
+b=lm(y~M+Ed+Ineq+Prob+U2+Po1,data=UScrime)
+summary(b)
+```
+```{r}
+
+```
+

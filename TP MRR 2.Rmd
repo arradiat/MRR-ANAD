@@ -1,0 +1,66 @@
+---
+title: "TP2 MRR"
+author: "Mame Diarra Toure"
+date: "10/14/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+So we are going to us a lasso regression ( package glmnet function glmnet ) in order to find a parsimonious model which performs L1 regularization. The L1 regularization adds a penality equivalent to the absolute of the maginitude of regression coefficients and tries to minimize them .
+The Lasso regression penalty term, using the absolute value (rather than the square, as in the regression Ridge), forces some if $\lambda$ is large enough. In practice, Lasso automatically performs a real selection of variables.
+```{r}
+library(glmnet)
+library(MASS)
+data(UScrime)
+X<- as.matrix(UScrime[ ,1:15])
+Y <-as.matrix(UScrime$y)
+# Loaging the library
+set.seed(10)
+lambdaseq <- seq(0,50,0.01)
+reslasso <- glmnet(X,Y,alpha = 1,lambda =  lambdaseq)
+#plot(reslasso)
+#plot(reslasso$lambda)
+lasso_cv <-cv.glmnet(X, Y, alpha = 1, lambda = lambdaseq)
+
+# identifying best lamda
+best_lam <- lasso_cv$lambda.min
+res=glmnet(X,Y, alpha=1, lambda=best_lam)
+coef(res)
+best_lam
+```
+We find the value of the lambda that's best fit our model thanks to the function cv.glmnet which compute lambda 
+
+
+
+#train and testing
+```{r}
+uscrime_data<-UScrime
+RMSE1=c()
+RMSE2=c()
+residu1=matrix(nrow =12, ncol=10)
+for (i in 1:10){
+  lambdaseq <- seq(0,50,0.01)
+  smp_size = floor(0.75 * nrow(UScrime))
+  set.seed(100+10*i)
+  train_ind = sample(seq_len(nrow(UScrime)),size = smp_size) 
+  TabTrain =uscrime_data[train_ind,] 
+  TabTest=uscrime_data[-train_ind,]
+  modreg1=cv.glmnet(as.matrix(TabTrain[,1:15]), TabTrain$y, alpha=1, lambda=lambdaseq)
+  best_lam <- modreg1$lambda.min
+  lasso_best <- glmnet(as.matrix(TabTrain[,1:15]), TabTrain$y, alpha = 1, lambda = best_lam)
+  Y_test<- predict(lasso_best, s = best_lam, newx = as.matrix(TabTest[,1:15]))
+  Y_predicted=data.frame(Y_test)
+  Y_reel=TabTest$y
+  residu1[,i]=(Y_reel)-t(Y_predicted)
+  RMSE2[i]=sqrt(((sum(residu1[,i])**2))/length(TabTest))
+}
+
+```
+
+
+
+
+
+
