@@ -1,0 +1,271 @@
+---
+title: "Untitled"
+author: "Mame Diarra Toure-Imane Alla"
+date: "2/3/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+#write.table(dist, file = "distance", append = FALSE, quote = TRUE, sep = ";")
+library(corrplot)
+```
+```{r}
+library(geosphere)
+library(tidyverse)
+
+library(lubridate)
+library(nycflights13)
+```
+
+#loading du training dataset
+```{r}
+train_data <- read.table(file = "/Users/princessemame/APPRENTISSAGE AUTOMATIQUE /train.csv",sep=",",header=TRUE)
+```
+
+#Premiere transformation: ajout de la colonne distance dans le training data set 
+Pou mieux apprehender les analyses Il nous faut transformer les coordonnes geogrpahique en distance car il semble logique que la distance sera correlé postivement avec la duree du trajet .
+il y'a 3 type de calcul possible selon l'hypothese sur la forme de la terre ( ellipsoidal ou spherique ) ainsi que la distance de la terre  les 3 donnes des valeurs assez proches. Les distance sont en m 
+```{r}
+n <- nrow(train_data)
+latA <-train_data[,7]
+lonA <- train_data[,6]
+latB <- train_data[,9]
+lonB <- train_data[,8]
+
+p1 <- matrix(data = c(lonA,latA),nrow=n, ncol=2)
+p2<- matrix(data = c(lonB,latB),nrow=n, ncol=2)
+
+#distGeo(p1,p2)   
+#distCosine(p1,p2) 
+#distHaversine(p1,p2)
+
+```
+j'ai choisi de commencer avec distGeo ( askip c'est le plus précis)
+```{r}
+distance <- distGeo(p1,p2)
+training_set <- cbind(train_data,distance)
+# switch des colonnes distance et duree
+a <- c(colnames(training_set))
+b <- a
+b[11] <- a[12]
+b[12 ] <- a[11]
+training_set <- training_set[c(b)]
+
+```
+petite idée je pensais qu'on pouvais se debarasser des coordonés géogrpahique une fois qu'on a la distance mais en vrai il faut aussi prendr en comple les zones geogrpahique par exemple la circulation ets certainement plus importante sur timesquare que sur long island
+ca serait bien de pouvoir lier les coordonnées geographique a la fluidité de la 
+
+
+
+#deuxieme transformation date en chiffre pour pouvoir faire un corrplot deja 
+```{r}
+options(TZ="Europe/Paris")
+```
+
+```{r}
+#training_set$pickup_datetime <- time_length(interval(start = ymd_hms(train_data$pickup_datetime), end = today()), unit = "seconds")
+
+
+```
+```{r}
+#training_set$dropoff_datetime<- time_length(interval(start = ymd_hms(train_data$dropoff_datetime), end = today()), unit = "seconds")
+```
+
+
+```{r}
+store_and_fwd_flag_trans=c()
+store_and_fwd_flag_trans <- ifelse(train_data$store_and_fwd_flag=="N",0,1)
+
+training_set$store_and_fwd_flag<-store_and_fwd_flag_trans
+#j'enleve la colonne id vendor id et store
+```
+#3e transfromation enlever les lignes correspondant a des durees trop éléve 
+je suppose que des duréés inferieur a 1 mn ou superieur a 6H ca sert a Rien 
+donc je les enleves pour l'instant 
+```{r}
+#trop long a executer,trouveer n autre moyen
+#n=nrow(training_set)
+#train1 <- training_set
+#for (i in 1:n){
+  #if (training_set$trip_duration>21600 || training_set$trip_duration<=60){
+    #train1[-i,]
+  #}
+#} 
+#j'enleve toutes les course superieur a 6h et toutes les courses inferieur a 2mn 
+training_set <- subset(training_set,training_set$trip_duration<=21600)
+training_set <- subset(training_set, training_set$trip_duration>=120)
+```
+
+
+```{r}
+#corrplot(cor(training_set[,-c(1,2,10)]))
+```
+corrplot pas fameux il semble que la duréé n'est lie qu' a la distance et cela tres faiblement 
+#Quelques plot 
+```{r}
+p1 <- training_set %>%
+  group_by(passenger_count) %>%
+  count() %>%
+  ggplot(aes(passenger_count, n, fill = passenger_count)) +
+  geom_col() +
+  scale_y_sqrt() +
+  theme(legend.position = "none")
+
+p2 <- training_set %>%
+  ggplot(aes(vendor_id, fill = vendor_id)) +
+  geom_bar() +
+  theme(legend.position = "none")
+
+p3 <- training_set %>%
+  ggplot(aes(store_and_fwd_flag)) +
+  geom_bar() +
+  theme(legend.position = "none") +
+  scale_y_log10()
+
+p4 <- training_set %>%
+  mutate(wday = wday(pickup_datetime, label = TRUE, week_start = 1)) %>%
+  group_by(wday, vendor_id) %>%
+  count() %>%
+  ggplot(aes(wday, n, colour = vendor_id)) +
+  geom_point(size = 4) +
+  labs(x = "Day of the week", y = "Total number of pickups") +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+p5 <- training_set %>%
+  mutate(hpick = hour(pickup_datetime)) %>%
+  group_by(hpick, vendor_id) %>%
+  count() %>%
+  ggplot(aes(hpick, n, color = vendor_id)) +
+  geom_point(size = 4) +
+  labs(x = "Hour of the day", y = "Total number of pickups") +
+  theme(legend.position = "none")
+
+
+#layout <- matrix(c(1,2,3,4,5,5),3,2,byrow=TRUE)
+#multiplot(p1, p2, p3, p4, p5, layout=layout)
+p5
+```
+Je voudrais tracer la duree moyenne d'une course selon l'heure de pick up 
+j'ai deja la nombre de course son le sheures 
+```{r}
+p1 <- training_set %>%
+  mutate(wday = wday(pickup_datetime, label = TRUE, week_start = 1)) %>%
+  group_by(wday, vendor_id) %>%
+  summarise(mean_duration = mean(trip_duration)) %>%
+  ggplot(aes(wday, mean_duration, color = vendor_id)) +
+  geom_point(size = 4) +
+  labs(x = "Day of the week", y = "Mean trip duration ")
+
+```
+```{r}
+p2 <- training_set %>%
+  mutate(hpick = hour(pickup_datetime)) %>%
+  group_by(hpick, vendor_id) %>%
+  summarise(mean_duration = mean(trip_duration)) %>%
+  ggplot(aes(hpick, mean_duration, color = vendor_id)) +
+  geom_point(size = 4) +
+  labs(x = "hour of the day", y = "Mean trip duration ")
+```
+
+
+
+```{r}
+p2
+p1
+```
+
+
+```{r}
+apply(duree_heure,2, mean)
+```
+
+```{r}
+# read in our libraries
+library(tidyverse) # includes ggplot2
+library(ggthemes) # includes pre-made themes we'll use near the end
+```
+
+```{r}
+ggplot(data = training_set, aes(y = trip_duration, x= distance)) +
+    geom_point() + # then add a layer of points
+    geom_smooth(method = "lm")
+```
+
+```{r}
+# make a bar plot
+ggplot(training_set, aes(x = trip_duration,
+                          fill = passenger_count # map the fill color to caramel           
+                         )) + # set up the plot
+    geom_bar() # add the barpot
+```
+```{r}
+set.seed(1234)
+```
+
+
+```{r}
+library(leaflet)
+foo <- sample_n(training_set, 8e3)
+
+leaflet(data = foo) %>% addProviderTiles("Esri.NatGeoWorldMap") %>%
+  addCircleMarkers(~ pickup_longitude, ~pickup_latitude, radius = 1,
+                   color = "deeppink", fillOpacity = 0.3)%>% setView(lng = -73.968565, lat =40.779897, zoom = 11)
+```
+
+```{r}
+library('lubridate') # date and time
+training_set <- training_set %>%
+  mutate(pickup_datetime = ymd_hms(pickup_datetime),
+         dropoff_datetime = ymd_hms(dropoff_datetime),
+         passenger_count = factor(passenger_count))
+
+hour(training_set$pickup_datetime)
+```
+
+#Premier essai avec lm de base 
+```{r}
+#j'enleve la colonne id vendor id et store
+training_set <- training_set[,-c(1,2,10)]
+```
+
+```{r}
+modreg_R1<- lm(training_set$trip_duration~.,data=training_set)
+```
+```{r}
+summary(modreg_R1)
+```
+```{r}
+X=as.matrix(cbind(rep(1,length(nrow(training_set))),training_set[,1:8]))
+beta=t(t(modreg_R1$coefficients))
+Y_hat=X%*%beta
+plot(Y_hat,training_set$trip_duration)
+abline(0,1,col="red")
+grid()
+
+```
+Ce truc est trop beau pour etre vrai j'ai l'impression 
+#enlever les 4 poitn qui partent en vrille 
+
+Je pense qu'on doit retravillé les donnés mais je sais pas comment so si vous avez des idées n'hesitez pas a les partageeeeeer 
+
+
+Une fois que cela sera fait je suppose 
+quon va utiliser tous les algos qu'on a vu de selection et des truc comme KNN ? 
+Ca serait peut etre bien si on se répartissez les taches pour eviter d'etre dispersé 
+
+
+```{r}
+gpspos <- data.frame(pick_lon=training_set$pickup_longitude,pick_lat=training_set$pickup_latitude) 
+```
+
+```{r}
+ggplot(gpspos, aes(pick_lon,pick_lat)) + 
+  geom_point(fill = "grey50")
+```
+

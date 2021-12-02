@@ -1,0 +1,147 @@
+---
+title: "Untitled"
+author: "Mame Diarra Toure-Imane Alla"
+date: "2/3/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+#write.table(dist, file = "distance", append = FALSE, quote = TRUE, sep = ";")
+library(corrplot)
+```
+```{r}
+library(tidyverse)
+
+library(lubridate)
+library(nycflights13)
+```
+
+#loading du training dataset
+```{r}
+train_data <- read.table(file = "/Users/princessemame/APPRENTISSAGE AUTOMATIQUE /train.csv",sep=",",header=TRUE)
+```
+
+#Premiere transformation: ajout de la colonne distance dans le training data set 
+Pou mieux apprehender les analyses Il nous faut transformer les coordonnes geogrpahique en distance car il semble logique que la distance sera correlé postivement avec la duree du trajet .
+il y'a 3 type de calcul possible selon l'hypothese sur la forme de la terre ( ellipsoidal ou spherique ) ainsi que la distance de la terre  les 3 donnes des valeurs assez proches. Les distance sont en m 
+```{r}
+n <- nrow(train_data)
+latA <-train_data[,7]
+lonA <- train_data[,6]
+latB <- train_data[,9]
+lonB <- train_data[,8]
+library(geosphere)
+p1 <- matrix(data = c(lonA,latA),nrow=n, ncol=2)
+p2<- matrix(data = c(lonB,latB),nrow=n, ncol=2)
+
+#distGeo(p1,p2)   
+#distCosine(p1,p2) 
+#distHaversine(p1,p2)
+
+```
+j'ai choisi de commencer avec distGeo ( askip c'est le plus précis)
+```{r}
+distance <- distGeo(p1,p2)
+training_set <- cbind(train_data,distance)
+# switch des colonnes distance et duree
+a <- c(colnames(training_set))
+b <- a
+b[11] <- a[12]
+b[12 ] <- a[11]
+training_set <- training_set[c(b)]
+
+```
+petite idée je pensais qu'on pouvais se debarasser des coordonés géogrpahique une fois qu'on a la distance mais en vrai il faut aussi prendr en comple les zones geogrpahique par exemple la circulation ets certainement plus importante sur timesquare que sur long island
+ca serait bien de pouvoir lier les coordonnées geographique a la fluidité de la 
+
+
+
+#deuxieme transformation date en chiffre pour pouvoir faire un corrplot deja 
+```{r}
+options(TZ="Europe/Paris")
+```
+
+```{r}
+training_set$pickup_datetime <- time_length(interval(start = ymd_hms(train_data$pickup_datetime), end = today()), unit = "seconds")
+
+
+```
+```{r}
+training_set$dropoff_datetime<- time_length(interval(start = ymd_hms(train_data$dropoff_datetime), end = today()), unit = "seconds")
+```
+
+
+```{r}
+store_and_fwd_flag_trans=c()
+store_and_fwd_flag_trans <- ifelse(train_data$store_and_fwd_flag=="N",0,1)
+
+training_set$store_and_fwd_flag<-store_and_fwd_flag_trans
+#j'enleve la colonne id vendor id et store
+```
+#3e transfromation enlever les lignes correspondant a des durees trop éléve 
+je suppose que des duréés inferieur a 1 mn ou superieur a 6H ca sert a Rien 
+donc je les enleves pour l'instant 
+```{r}
+#trop long a executer,trouveer n autre moyen
+#n=nrow(training_set)
+#train1 <- training_set
+#for (i in 1:n){
+  #if (training_set$trip_duration>21600 || training_set$trip_duration<=60){
+    #train1[-i,]
+  #}
+#} 
+```
+
+
+```{r}
+corrplot(cor(training_set[,-c(1,2,10)]))
+```
+corrplot pas fameux il semble que la duréé n'est lie qu' a la distance et cela tres faiblement 
+#Quelques plot 
+
+```{r}
+plot(training_set$distance,training_set$trip_duration, ylim=c(0,20000))
+```
+```{r}
+plot(training_set$pickup_datetime,training_set$trip_duration)
+```
+```{r}
+plot(training_set$dropoff_datetime ,training_set$trip_duration)
+```
+#Premier essai avec lm de base 
+```{r}
+#j'enleve la colonne id vendor id et store
+training_set <- training_set[,-c(1,2,10)]
+
+```
+
+```{r}
+modreg_R1<- lm(training_set$trip_duration~.,data=training_set)
+```
+```{r}
+summary(modreg_R1)
+```
+```{r}
+X=as.matrix(cbind(rep(1,length(nrow(training_set))),training_set[,1:8]))
+beta=t(t(modreg_R1$coefficients))
+Y_hat=X%*%beta
+plot(Y_hat,training_set$trip_duration)
+abline(0,1,col="red")
+grid()
+
+```
+Ce truc est trop beau pour etre vrai j'ai l'impression 
+
+Je pense qu'on doit retravillé les donnés mais je sais pas comment so si vous avez des idées n'hesitez pas a les partageeeeeer 
+
+
+Une fois que cela sera fait je suppose 
+quon va utiliser tous les algos qu'on a vu de selection et des truc comme KNN ? 
+Ca serait peut etre bien si on se répartissez les taches pour eviter d'etre dispersé 
+
+
+
+

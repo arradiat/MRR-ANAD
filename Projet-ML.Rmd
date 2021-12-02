@@ -1,0 +1,22 @@
+---
+title: "Untitled"
+author: "Mame Diarra Toure-Imane Alla"
+date: "2/3/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+train_data <- read.table(file = "/Users/princessemame/APPRENTISSAGE AUTOMATIQUE /train.csv",sep=",",header=TRUE)
+```
+
+```{r}
+distantpick_drop <- function(lA,lB,LA,LB){
+  d=(6.4*10**6)*acos(sin(lA)*sin(lB)+cos(lA)*cos(lB)*cos(LA-LB))
+  return(d)
+}
+
+```
+

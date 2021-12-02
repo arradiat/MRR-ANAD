@@ -1,0 +1,86 @@
+---
+title: "code"
+author: "Mame Diarra Toure"
+date: "3/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#2e modele avec KNN 
+\section{KNN regression}
+k-Nearest Neighbors (k-NN) is an algorithm that is useful for making classifications/predictions when there are potential non-linear boundaries separating classes or values of interest. Conceptually, k-NN examines the classes/values of the points around it (i.e., its neighbors) to determine the value of the point of interest. The majority or average value will be assigned to the point of interest.
+A simple implementation of KNN regression is to calculate the average of the numerical target of the K nearest neighbors.  Another approach uses an inverse distance weighted average of the K nearest neighbors. KNN regression uses the same distance functions as KNN classification.
+```{r}
+#knene <- FNN::knn.reg(data1[,c(1:1,3:20)], y=data1$CO..ppm.,k=5, algorithm=c("kd_tree"))
+#Y_hat <- knene$pred
+```
+#LASSO
+```{r}
+library(glmnet)
+```
+
+
+```{r}
+modreg1=cv.glmnet(as.matrix(train[,c(1:7,9:11)]), train$trip_duration, alpha=1)
+best_lam <- modreg1$lambda.min
+lasso_best <- glmnet(as.matrix(train[,c(1:7,9:11)]), train$trip_duration, alpha = 1, lambda = best_lam)
+Y_test<- predict(lasso_best, s = best_lam, newx = as.matrix(test))
+```
+#RIDGE
+```{r}
+library(glmnet)
+CvRidgeMod=cv.glmnet(as.matrix(train[,c(1:7,9:11)]), train$trip_duration,alpha=0,nlambda=100,lambda.min.ratio=0.0001)
+best.lam=CvRidgeMod$lambda.min 
+ridge_best <- glmnet(as.matrix(train[,c(1:7,9:11)]), train$trip_duration, alpha = 0, lambda = best_lam)
+Y_test<- predict(ridge_best, s = best_lam, newx = as.matrix(test))
+
+```
+
+```{r}
+submit$trip_duration <- Y_test
+```
+```{r}
+submit[which(submit$trip_duration<0),2] <- 0
+```
+```{r}
+summary(submit)
+```
+```{r}
+write.csv(x = submit, file = "sample_submission.csv",row.names = FALSE)
+```
+```{r}
+library(FNN)
+train1 <- train[,c(1:7,9:11)]
+Y <- train$trip_duration
+test1 <- test
+kaenene <- knn(train=train1,test=test1,cl=Y,k=3, prob=F)
+
+```
+```{r}
+A <-  as.data.frame.vector(kaenene)
+submit1 <- submit
+submit1$trip_duration <- kaenene
+```
+```{r}
+summary(A)
+```
+```{r}
+write.csv(x = submit1, file = "sample_submission1.csv",row.names = FALSE)
+```
+```{r}
+# Fitting model
+library(class)
+fit <-knn(train$trip_duration ~ ., data = train[,c(1:6,8:10)],k=5)
+summary(fit)
+#Predict Output
+```
+```{r}
+test_id <- read.csv("sample_submission.csv",header = T)
+pred <- test_id %>%
+  mutate(trip_duration = test_preds)
+
+pred %>% write.csv('submit.csv',row.names = F)
+```
+

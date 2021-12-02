@@ -1,0 +1,484 @@
+---
+title: ''
+author: "ALLA"
+date: "01/03/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library('ggplot2') # visualisation
+library('scales') # visualisation
+library('grid') # visualisation
+library('RColorBrewer') # visualisation
+library('corrplot') # visualisation
+library('alluvial') # visualisation
+library('dplyr') # data manipulation
+library('readr') # input/output
+library('data.table') # data manipulation
+library('tibble') # data wrangling
+library('tidyr') # data wrangling
+library('stringr') # string manipulation
+library('forcats') # factor manipulation
+library('lubridate') # date and time
+library('geosphere') # geospatial locations
+library('leaflet') # maps
+library('leaflet.extras') # maps
+library('maps') # maps
+library('xgboost') # modelling
+library('caret') # modelling
+```
+
+\section{Introduction}
+```{r}
+train_data<-data.table::fread(file="/Users/princessemame/APPRENTISSAGE AUTOMATIQUE /train.csv",sep=",",header=TRUE)
+
+```
+# Overview of the dataset
+```{r}
+summary(train_data)
+
+glimpse(train_data)
+```
+```{r}
+test_data<-data.table::fread(file="/Users/princessemame/APPRENTISSAGE AUTOMATIQUE /test.csv",sep=",",header=TRUE)
+```
+```{r}
+summary(test_data)
+```
+
+```{r}
+test_data <- test_data %>%
+  mutate(pickup_datetime = ymd_hms(pickup_datetime))
+library(geosphere)
+n <- nrow(test_data)
+latA <-as.matrix(test_data$pickup_latitude)
+lonA <- as.matrix(test_data$pickup_longitude)
+latB <- as.matrix(test_data$dropoff_latitude)
+lonB <- as.matrix(test_data$dropoff_longitude)
+p1 <- matrix(data = c(lonA,latA),nrow=n, ncol=2)
+p2<- matrix(data = c(lonB,latB),nrow=n, ncol=2)
+distance <- distGeo(p1,p2)
+test_data <- cbind(test_data,distance)
+
+test_data1 <- test_data%>%
+  mutate(vendor_id = as.integer(vendor_id),
+         month = month(pickup_datetime),
+         wday = wday(pickup_datetime),
+         hour = hour(pickup_datetime),
+         date = date(pickup_datetime)
+)
+```
+```{r}
+View( test_data1)
+```
+```{r}
+sample_submission_data<-data.table::fread(file="/Users/princessemame/APPRENTISSAGE AUTOMATIQUE /submit.csv",sep=",",header=TRUE)
+```
+
+```{r}
+model_train1=train_data
+model_train1 <- model_train1 %>%
+  mutate(pickup_datetime = ymd_hms(pickup_datetime),
+         dropoff_datetime = ymd_hms(dropoff_datetime))
+         #passenger_count = factor(passenger_count))
+```
+
+#Distance
+```{r}
+n <- nrow(model_train1)
+latA <-model_train1$pickup_latitude
+lonA <- model_train1$pickup_longitude
+latB <- model_train1$dropoff_latitude
+lonB <-model_train1$dropoff_longitude
+library(geosphere)
+p1 <- matrix(data = c(lonA,latA),nrow=n, ncol=2)
+p2<- matrix(data = c(lonB,latB),nrow=n, ncol=2)
+model_train1$distance<-distGeo(p1,p2)
+```
+
+
+
+```{r}
+model_train1 <- model_train1 %>%
+
+  filter((distance>0)&(distance<=100000))
+```
+
+#Passengers
+
+```{r}
+model_train1 <- model_train1 %>%
+
+  filter(passenger_count<=6)
+```
+
+#Duree
+```{r}
+model_train1<- model_train1 %>%
+  filter(trip_duration>=60,trip_duration <6*3600)
+```
+
+```{r}
+View(model_train1)
+```
+
+```{r}
+model_train2<-model_train1[,c(-10,-1)]
+```
+```{r}
+View(model_train2)
+```
+#Transformation de date en heure,mois,day
+```{r}
+model_train2<- model_train2 %>%
+  mutate(month = month(pickup_datetime),
+         wday = wday(pickup_datetime),
+         date = date(pickup_datetime),
+         #1:dimanche,2:lundi...
+         hour = hour(pickup_datetime)
+         #pointe = (hour %in% seq(7,9)) | (hour %in% seq(12,14))|(hour %in% seq(18,20)),
+         #nuit = (hour %in% seq(00,6)),
+         #normal=(hour %in% seq(10,11)) | (hour %in% seq(15,17))|(hour %in% seq(21,23))
+         )
+```
+
+
+#Ajoutons la colonne logtrip_duration
+```{r}
+#model_train2$logtrip_duration <- log(model_train2$trip_duration)
+```
+
+```{r}
+View(model_train2)
+```
+```{r}
+set.seed(123)
+train_coord_pickup <- cbind(model_train2$pickup_latitude,model_train2$pickup_longitude)
+# Applying the Kmeans algorithm in order to create 'neighborhoods'
+nb_pickup <- kmeans(train_coord_pickup, centers=15, algorithm='Lloyd', iter.max=500 )
+
+set.seed(123)
+train_coord_dropoff <- cbind(model_train2$dropoff_latitude, model_train2$dropoff_longitude)
+# Applying the Kmeans algorithm in order to create 'neighborhods'
+nb_dropoff <- kmeans(train_coord_dropoff, centers=15, algorithm='Lloyd', iter.max=500 )
+```
+```{r}
+
+```
+
+```{r}
+View(model_train2)
+```
+```{r}
+model_train3<-model_train2[,-c(2,3,13)]
+```
+
+```{r}
+write.csv(x = model_train3, file = "model_train.csv",row.names = FALSE)
+```
+
+
+```{r}
+sample_submission_data$id <- test_data1$id
+```
+
+
+```{r}
+model_test <- test_data1[,-c(1, 3, 9,14)]
+
+```
+```{r}
+write.csv(x = model_test, file = "model_test.csv",row.names = FALSE)
+```
+
+```{r}
+
+```
+
+
+#OLS
+```{r}
+modreg_R1<- lm(model_train3$trip_duration~.,data=model_train3)
+#summary(modreg_R1)
+```
+```{r}
+X=as.matrix(cbind(rep(1,length(nrow(model_test))),model_test))
+beta=t(t(modreg_R1$coefficients))
+Y_hat=X%*%beta
+sample_submission_data$trip_duration <- Y_hat
+```
+
+```{r}
+write.csv(x = sample_submission_data, file = "submitOLS.csv",row.names = FALSE)
+```
+#Lasso
+```{r}
+library(glmnet)
+```
+
+```{r}
+modreg1=cv.glmnet(as.matrix(model_train3[,-7]),model_train3$trip_duration, alpha=1)
+```
+
+
+```{r}
+best_lam <- modreg1$lambda.min
+lasso_best <- glmnet(as.matrix(model_train3[,-7]),model_train3$trip_duration, alpha = 1, lambda = best_lam)
+Y_test<- predict(lasso_best, s = best_lam, newx = as.matrix(model_test))
+```
+```{r}
+sample_submission_data$trip_duration <- Y_test
+write.csv(x = sample_submission_data, file = "submitlasso.csv",row.names = FALSE)
+```
+
+#Ridge
+```{r}
+modreg2=cv.glmnet(as.matrix(model_train3[,-7]),model_train3$trip_duration,alpha=0,nlambda=100,lambda.min.ratio=0.0001)
+```
+```{r}
+best_lambda=modreg2$lambda.min
+best_ridge= glmnet(as.matrix(model_train3[,-7]),model_train3$trip_duration,alpha=0,lambda=best_lambda)
+Y_testridge=predict(best_ridge, s = best_lam, newx = as.matrix(model_test))
+
+```
+```{r}
+sample_submission_data$trip_duration <-Y_testridge
+write.csv(x = sample_submission_data, file = "submitridge.csv",row.names = FALSE)
+```
+
+#Elastic Net
+```{r}
+modreg3=cv.glmnet(as.matrix(model_train3[,-7]),model_train3$trip_duration,alpha=0.5,nlambda=100,lambda.min.ratio=0.0001)
+```
+
+
+```{r}
+best_lam <- modreg3$lambda.min
+EN_best <- glmnet(as.matrix(model_train3[,-7]),model_train3$trip_duration,alpha=0.5,  lambda = best_lam)
+Y_test_EN<- predict(EN_best, s = best_lam,newx = as.matrix(model_test))
+```
+```{r}
+sample_submission_data$trip_duration <- Y_test_EN
+write.csv(x = sample_submission_data, file = "submitEN.csv",row.names = FALSE)
+```
+
+#KNN
+```{r}
+prediction <- FNN::knn.reg(model_train3[,-7],model_test,model_train3$trip_duration, k=50, algorithm="kd_tree") 
+```
+```{r}
+Y_KNN <- prediction$pred
+```
+```{r}
+sample_submission_data$trip_duration <- Y_KNN
+write.csv(x = sample_submission_data, file = "submitKNN.csv",row.names = FALSE)
+```
+
+
+#SGD
+```{r}
+library(sgd)
+sgd.theta <- sgd(model_train3$trip_duration ~ ., data=model_train3, model="lm") 
+```
+```{r}
+
+X=as.matrix(cbind(rep(1,length(nrow(model_test))),model_test))
+beta=t(t(sgd.theta$coefficients))
+Y_sgd=X%*%beta
+```
+```{r}
+sample_submission_data$trip_duration <- Y_sgd
+write.csv(x = sample_submission_data, file = "submitsgd.csv",row.names = FALSE)
+```
+
+#Externe data
+```{r}
+weather<-data.table::fread(file="weather.csv",sep=",",header=TRUE)
+```
+```{r}
+glimpse(weather)
+```
+```{r}
+
+weather <- weather %>%
+  mutate(date = dmy(date),
+         rain = as.numeric(ifelse(precipitation == "T", "0.01", precipitation)),
+         s_fall = as.numeric(ifelse(`snow fall` == "T", "0.01", `snow fall`)),
+         s_depth = as.numeric(ifelse(`snow depth` == "T", "0.01", `snow depth`)),
+         all_precip = s_fall + rain,
+         has_snow = (s_fall > 0) | (s_depth > 0),
+         has_rain = rain > 0,
+         max_temp = `maximum temperature`,
+         min_temp = `minimum temperature`)
+```
+```{r}
+foo <- weather %>%
+  select(date, rain, s_fall, all_precip, has_snow, has_rain, s_depth, max_temp, min_temp)
+
+model_train2 <- left_join(model_train2, foo, by = "date")
+```
+
+
+```{r}
+model_train4<-model_train2[,-c(2,3,13)]
+```
+
+
+```{r}
+model_train4$has_snow<-as.integer(as.factor(model_train4$has_snow))
+model_train4$has_rain<-as.integer(as.factor(model_train4$has_rain))
+model_train4<-model_train4[,-14]
+```
+```{r}
+View(model_train4)
+```
+```{r}
+model_test2 <- left_join(test_data1, foo, by = "date")
+model_test2<-model_test2[,-c(1,3,9,14,17)]
+model_test2$has_snow<-as.integer(as.factor(model_test2$has_snow))
+model_test2$has_rain<-as.integer(as.factor(model_test2$has_rain))
+```
+
+```{r}
+View(model_test2)
+```
+
+#OLS
+```{r}
+modreg_R2<- lm(model_train4$trip_duration~.,data=model_train4)
+summary(modreg_R2)
+```
+```{r}
+X=as.matrix(cbind(rep(1,length(nrow(model_test2))),model_test2))
+beta=t(t(modreg_R2$coefficients))
+Y_hat=X%*%beta
+```
+
+```{r}
+sample_submission_data$trip_duration <- Y_hat
+write.csv(x = sample_submission_data, file = "submitolsweather.csv",row.names = FALSE)
+```
+
+#KNN
+```{r}
+prediction2 <- FNN::knn.reg(model_train4[,-7],model_test2,model_train4$trip_duration, k=50, algorithm="kd_tree") 
+```
+```{r}
+Y_KNNw <- prediction2$pred
+
+sample_submission_data$trip_duration <- Y_KNNw
+write.csv(x = sample_submission_data, file = "submitKNNw.csv",row.names = FALSE)
+```
+# Fastest Routes
+
+#COMPARAISON DES MODELES DE REGRESSIONS
+```{r}
+data2 <- sample_n(model_train4,10000)
+```
+
+```{r,warning=FALSE}
+RMSE1=c()
+RMSE_lm=c()
+residu_lm=matrix(nrow =2000, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.8 * nrow(data2))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(data2)),size = smp_size) 
+  TabTrain =data2[train_ind,] 
+  TabTest=data2[-train_ind,]
+  modreg1= lm(TabTrain$trip_duration~.,data=TabTrain)
+  Y_test=predict(modreg1,newdata=TabTest[,c(1:6,8:19)],interval="confidence")
+  Y_predicted=data.frame(Y_test)$fit
+  Y_reel=TabTest$trip_duration
+  residu_lm[,i]=Y_reel-Y_predicted
+  RMSE_lm[i]=sqrt(((sum(residu_lm[,i])**2))/length(TabTest))
+}
+
+RMSE_ridge=c()
+residu_ridge=matrix(nrow =2000, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.8 * nrow(data2))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(data2)),size = smp_size) 
+  
+  TabTrain =data2[train_ind,] 
+  TabTest=data2[-train_ind,]
+  
+  modreg1=cv.glmnet(as.matrix(TabTrain[,c(1:6,8:19)]),TabTrain[,7],alpha=0,nlambda=100,lambda.min.ratio=0.0001)
+  
+  best_lambda=modreg1$lambda.min
+  
+  best_ridge=glmnet(as.matrix(TabTrain[,c(1:6,8:19)]),TabTrain$trip_duration ,lambda=best_lambda)
+  
+  pred=predict(best_ridge, s = best_lambda, newx= as.matrix(TabTest[,c(1:6,8:19)]))
+  Y_predicted=data.frame(pred)
+  Y_reel=TabTest$trip_duration
+  residu_ridge[,i]=Y_reel-t(Y_predicted)
+  RMSE_ridge[i]=sqrt(((sum(residu_ridge[,i])**2))/length(TabTest))
+}
+
+RMSE_lasso=c()
+residu_lasso=matrix(nrow =2000, ncol=20)
+for (i in 1:20){
+  lambdaseq <- seq(0,50,0.01)
+  smp_size = floor(0.8 * nrow(data2))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(data2)),size = smp_size) 
+  TabTrain =data2[train_ind,] 
+  TabTest=data2[-train_ind,]
+  modreg1=cv.glmnet(as.matrix(TabTrain[,c(1:6,8:19)]), TabTrain$trip_duration, alpha=1, lambda=lambdaseq)
+  best_lam <- modreg1$lambda.min
+  lasso_best <- glmnet(as.matrix(TabTrain[,c(1:6,8:19)]), TabTrain$trip_duration, alpha = 1, lambda = best_lam)
+  Y_test<- predict(lasso_best, s = best_lam, newx = as.matrix(TabTest[,c(1:6,8:19)]))
+  Y_predicted=data.frame(Y_test)
+  Y_reel=TabTest$trip_duration
+  residu_lasso[,i]=(Y_reel)-t(Y_predicted)
+  RMSE_lasso[i]=sqrt(((sum(residu_lasso[,i])**2))/length(TabTest))
+}
+RMSE_EN=c()
+residu_EN=matrix(nrow =200, ncol=20)
+for (i in 1:20){
+  lambdaseq <- seq(0,50,0.01)
+  smp_size = floor(0.8 * nrow(data2))
+  set.seed(200*i+10)
+  train_ind = sample(seq_len(nrow(data2)),size = smp_size) 
+  TabTrain =data2[train_ind,] 
+  TabTest=data2[-train_ind,]
+  modreg1=cv.glmnet(as.matrix(TabTrain[,c(1:6,8:19)]), TabTrain$trip_duration ,alpha=0.5,nlambda=100,lambda.min.ratio=0.0001)
+  best_lam <- modreg1$lambda.min
+  EN_best <- glmnet(as.matrix(TabTrain[,c(1:6,8:19)]), TabTrain$trip_duration,alpha=0.5,  lambda = best_lam)
+  Y_test<- predict(EN_best, s = best_lam, newx = as.matrix(TabTest[,c(1:6,8:19)]))
+  Y_predicted=data.frame(Y_test)
+  Y_reel=TabTest$trip_duration
+  residu_EN[,i]=(Y_reel)-t(Y_predicted)
+  RMSE_EN[i]=sqrt(((sum(residu_EN[,i])**2))/length(TabTest))
+}
+```
+```{r}
+library(FNN)
+set.seed(42)
+RMSE1=c()
+RMSE_KNN=c()
+residu_KNN=matrix(nrow =200, ncol=20)
+for (i in 1:20){
+  smp_size = floor(0.8 * nrow(data2))
+  set.seed(10+200*i)
+  train_ind = sample(seq_len(nrow(data2)),size = smp_size) 
+  TabTrain =data2[train_ind,] 
+  TabTest=data2[-train_ind,]
+  prediction <- FNN::knn.reg(TabTrain[,c(1:6,8:19)],TabTest[,c(1:6,8:19)], TabTrain$trip_duration, k = 25, algorithm="kd_tree")  
+  Y__predicted <- prediction$pred
+  Y_reel=TabTest$trip_duration
+  residu_KNN[,i]=Y_reel-Y_predicted
+  RMSE_KNN[i]=sqrt(((sum(residu_KNN[,i])**2))/length(TabTest))
+}
+
+group=c("lm","Lasso","Ridge","ElasticNet","KNN")
+boxplot(RMSE_lm,RMSE_lasso,RMSE_ridge,RMSE_EN,RMSE_KNN,names=group,notch=F, outlier.color = "red", outlier.shape = 8, outlier.size = 4, col=(c("darkgreen","purple","pink","blue","red")))
+grid()
+```
